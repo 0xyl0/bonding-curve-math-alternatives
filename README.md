@@ -13,7 +13,7 @@ $ forge build
 ### Test
 
 ```shell
-$ forge test
+$ forge test -vv
 ```
 
 ### Gas report
