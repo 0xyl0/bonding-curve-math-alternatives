@@ -1,6 +1,6 @@
 pragma solidity ^0.8.24;
 
-import { UD60x18, wrap, unwrap } from "prb-math/UD60x18.sol";
+import { SD59x18, wrap, unwrap } from "prb-math/SD59x18.sol";
 import "./BaseBondingCurve.sol";
 
 import "forge-std/console2.sol";
@@ -18,6 +18,6 @@ contract PRBBondingCurve is BaseBondingCurve {
         console2.log(toUint(fromUint(_exponent).mul(ABDKMath64x64.log_2(fromUint(_base)))), "exp");
         console2.log(toUint(ABDKMath64x64.exp_2(fromUint(_exponent).mul(ABDKMath64x64.log_2(fromUint(_base))))), "return");
         */
-        return wrap(_exponent).mul(wrap(_base).log2()).exp2().unwrap();
+        return uint256(wrap(int256(_exponent)).mul(wrap(int256(_base)).log2()).exp2().unwrap());
     }
 }

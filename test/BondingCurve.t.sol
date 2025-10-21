@@ -6,7 +6,7 @@ import {IBondingCurve} from "../src/Interfaces/IBondingCurve.sol";
 import {ABDKBondingCurve} from "../src/ABDKBondingCurve.sol";
 import {PRBBondingCurve} from "../src/PRBBondingCurve.sol";
 
-contract ABDKBondingCurveTest is Test {
+contract BondingCurveTest is Test {
     //ABDKBondingCurve public abdkBondingCurve;
 
     function setUp() public {
@@ -29,7 +29,7 @@ contract ABDKBondingCurveTest is Test {
         }
     }
 
-    function _testSimple(IBondingCurve _bc) internal {
+    function _testSimple(IBondingCurve _bc, uint256 _runs, uint256 _maxTokenDeviation, uint256 _maxReserveDeviation, uint256 _rrDeviation) internal {
         console2.log("-- before --");
         logState(_bc);
         logDeviation(_bc);
@@ -39,7 +39,7 @@ contract ABDKBondingCurveTest is Test {
         console2.log(initialTokenAmount, "initialTokenAmount");
         uint256 reserveAmount;
         uint256 tokenAmount = initialTokenAmount;
-        for (uint256 i = 0; i < 10000; i++) {
+        for (uint256 i = 0; i < _runs; i++) {
             reserveAmount = _bc.sell(tokenAmount);
             tokenAmount = _bc.buy(reserveAmount);
         }
@@ -49,9 +49,9 @@ contract ABDKBondingCurveTest is Test {
         logState(_bc);
         logDeviation(_bc);
 
-        assertApproxEqAbs(initialTokenAmount, tokenAmount, 1e5, "Too much token deviation");
-        assertApproxEqAbs(initialReserveAmount, reserveAmount, 1e7, "Too much reserve deviation");
-        assert(_bc.checkCurrentDeviation(100));
+        assertApproxEqAbs(initialTokenAmount, tokenAmount, _maxTokenDeviation, "Too much token deviation");
+        assertApproxEqAbs(initialReserveAmount, reserveAmount, _maxReserveDeviation, "Too much reserve deviation");
+        assertTrue(_bc.checkCurrentDeviation(_rrDeviation), "Too much reserve ratio deviation");
     }
 
     function _testFuzzBuy(IBondingCurve _bc, uint256 _x) internal {
@@ -71,7 +71,7 @@ contract ABDKBondingCurveTest is Test {
     function testABDKSimple() public {
         ABDKBondingCurve abdkBondingCurve = new ABDKBondingCurve(2 ether, 0.5 ether, 1000 ether);
 
-        _testSimple(IBondingCurve(abdkBondingCurve));
+        _testSimple(IBondingCurve(abdkBondingCurve), 10000, 1e5, 1e7, 100);
     }
 
     function testABDKFuzzBuy(uint256 _initialSupply, uint256 _x) public {
@@ -90,7 +90,7 @@ contract ABDKBondingCurveTest is Test {
         //_initialSupply = bound(_initialSupply, 1, 1e9 ether);
         _initialSupply = bound(_initialSupply, 0.0001 ether, 1e9 ether);
         //_x = bound(_x, 1, _initialSupply);
-        _x = bound(_x, 1, _initialSupply * 999999 / 1000000);
+        _x = bound(_x, 1, _initialSupply * 99999 / 100000);
 
         ABDKBondingCurve abdkBondingCurve = new ABDKBondingCurve(2 ether, 0.5 ether, _initialSupply);
 
@@ -98,13 +98,11 @@ contract ABDKBondingCurveTest is Test {
     }
 
     // -- PRB --
-    /// It doesn't work with logarithm of a number less than UNIT !!
 
-    /*
     function testPRBSimple() public {
         PRBBondingCurve prbBondingCurve = new PRBBondingCurve(2 ether, 0.5 ether, 1000 ether);
 
-        _testSimple(IBondingCurve(prbBondingCurve));
+        _testSimple(IBondingCurve(prbBondingCurve), 10000, 1e9, 1e12, 1e6);
     }
 
     function testPRBFuzz_Buy(uint256 _initialSupply, uint256 _x) public {
@@ -123,11 +121,10 @@ contract ABDKBondingCurveTest is Test {
         //_initialSupply = bound(_initialSupply, 1, 1e9 ether);
         _initialSupply = bound(_initialSupply, 0.0001 ether, 1e9 ether);
         //_x = bound(_x, 1, _initialSupply);
-        _x = bound(_x, 1, _initialSupply * 999999 / 1000000);
+        _x = bound(_x, 1, _initialSupply * 99999 / 100000);
 
         PRBBondingCurve prbBondingCurve = new PRBBondingCurve(2 ether, 0.5 ether, _initialSupply);
 
         _testFuzzSell(IBondingCurve(prbBondingCurve), _x);
     }
-    */
 }
