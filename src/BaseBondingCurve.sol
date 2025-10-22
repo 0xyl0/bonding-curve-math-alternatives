@@ -25,12 +25,11 @@ abstract contract BaseBondingCurve is IBondingCurve {
 
     function buy(uint256 _reserveAmount) external returns (uint256) {
         uint256 tokenAmount = currentSupply
-            * (
-                pow(
+            * (pow(
                     DECIMAL_PRECISION + _reserveAmount * DECIMAL_PRECISION / currentBalance,
                     DECIMAL_PRECISION * DECIMAL_PRECISION / (B + DECIMAL_PRECISION)
-                ) - DECIMAL_PRECISION
-            ) / DECIMAL_PRECISION;
+                )
+                - DECIMAL_PRECISION) / DECIMAL_PRECISION;
 
         currentSupply += tokenAmount;
         currentBalance += _reserveAmount;
@@ -40,10 +39,9 @@ abstract contract BaseBondingCurve is IBondingCurve {
 
     function sell(uint256 _tokenAmount) external returns (uint256) {
         uint256 reserveAmount = currentBalance
-            * (
-                DECIMAL_PRECISION
-                    - pow(DECIMAL_PRECISION - _tokenAmount * DECIMAL_PRECISION / currentSupply, B + DECIMAL_PRECISION)
-            ) / DECIMAL_PRECISION;
+            * (DECIMAL_PRECISION
+                - pow(DECIMAL_PRECISION - _tokenAmount * DECIMAL_PRECISION / currentSupply, B + DECIMAL_PRECISION))
+            / DECIMAL_PRECISION;
 
         currentSupply -= _tokenAmount;
         currentBalance -= reserveAmount;
@@ -85,8 +83,9 @@ abstract contract BaseBondingCurve is IBondingCurve {
     }
 
     function _reserveRatioDeviation(uint256 _supply, uint256 _balance) internal view returns (int256) {
-        return (int256(_supply * getPrice(_supply)) - int256((B + DECIMAL_PRECISION) * _balance))
-            / int256(DECIMAL_PRECISION);
+        return
+            (int256(_supply * getPrice(_supply)) - int256((B + DECIMAL_PRECISION) * _balance))
+                / int256(DECIMAL_PRECISION);
     }
 
     function reserveRatioDeviation() external view returns (int256) {
