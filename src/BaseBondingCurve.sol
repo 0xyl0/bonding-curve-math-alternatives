@@ -1,10 +1,15 @@
 pragma solidity ^0.8.24;
 
+import "openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+
 import {IBondingCurve} from "./Interfaces/IBondingCurve.sol";
 
 import "forge-std/console2.sol";
 
-abstract contract BaseBondingCurve is IBondingCurve {
+// TODO: make sure rounding errors favour the system, not the user
+
+abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
     uint256 public constant DECIMAL_PRECISION = 1e18;
     uint256 public constant ERROR_THRESHOLD = 1e12;
 
@@ -12,15 +17,32 @@ abstract contract BaseBondingCurve is IBondingCurve {
     uint256 public immutable A; // alpha (coefficient) in the bonding curve
     uint256 public immutable B; // beta (exponent) in the bonding curve
 
+    IERC20 public immutable reserveToken;
+
     uint256 public currentSupply;
     uint256 public currentBalance;
 
-    constructor(uint256 _alpha, uint256 _beta, uint256 _supply) {
+    constructor(
+        uint256 _alpha,
+        uint256 _beta,
+        uint256 _supply,
+        IERC20 _reserveToken,
+        string memory _name,
+        string memory _symbol
+    ) ERC20(_name, _symbol) ERC20Permit(_name) {
         A = _alpha;
         B = _beta;
+        reserveToken = _reserveToken;
+
         // init pool
         currentSupply = _supply;
-        currentBalance = _supply * getPrice(_supply) / (B + DECIMAL_PRECISION);
+        uint256 initialBalance = _supply * getPrice(_supply) / (B + DECIMAL_PRECISION);
+        //console2.log(initialBalance, "initialBalance");
+        currentBalance = initialBalance;
+        // token operations
+        _mint(msg.sender, _supply);
+        // TODO:
+        //reserveToken.transferFrom(msg.sender, address(this), initialBalance);
     }
 
     function buy(uint256 _reserveAmount) external returns (uint256) {
@@ -34,6 +56,9 @@ abstract contract BaseBondingCurve is IBondingCurve {
         currentSupply += tokenAmount;
         currentBalance += _reserveAmount;
 
+        _mint(msg.sender, tokenAmount);
+        reserveToken.transferFrom(msg.sender, address(this), _reserveAmount);
+
         return tokenAmount;
     }
 
@@ -45,6 +70,9 @@ abstract contract BaseBondingCurve is IBondingCurve {
 
         currentSupply -= _tokenAmount;
         currentBalance -= reserveAmount;
+
+        _burn(msg.sender, _tokenAmount);
+        reserveToken.transfer(msg.sender, reserveAmount);
 
         return reserveAmount;
     }
@@ -102,4 +130,31 @@ abstract contract BaseBondingCurve is IBondingCurve {
 
     // Unimplemented functions
     function pow(uint256 _base, uint256 _exponent) public pure virtual returns (uint256);
+
+    // ERC20 functions
+
+    function transfer(address recipient, uint256 amount) public override(ERC20, IERC20) returns (bool) {
+        _requireValidRecipient(recipient);
+        return super.transfer(recipient, amount);
+    }
+
+    function transferFrom(address sender, address recipient, uint256 amount)
+        public
+        override(ERC20, IERC20)
+        returns (bool)
+    {
+        _requireValidRecipient(recipient);
+        return super.transferFrom(sender, recipient, amount);
+    }
+
+    function _requireValidRecipient(address _recipient) internal view {
+        require(
+            _recipient != address(0) && _recipient != address(this),
+            "BoldToken: Cannot transfer tokens directly to the Bold token contract or the zero address"
+        );
+    }
+
+    function nonces(address owner) public view virtual override(IERC20Permit, ERC20Permit) returns (uint256) {
+        return super.nonces(owner);
+    }
 }

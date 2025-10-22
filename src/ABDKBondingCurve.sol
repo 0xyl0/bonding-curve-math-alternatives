@@ -9,7 +9,14 @@ contract ABDKBondingCurve is BaseBondingCurve {
     using ABDKMath64x64 for uint256;
     using ABDKMath64x64 for int128;
 
-    constructor(uint256 _alpha, uint256 _beta, uint256 _supply) BaseBondingCurve(_alpha, _beta, _supply) {}
+    constructor(
+        uint256 _alpha,
+        uint256 _beta,
+        uint256 _supply,
+        IERC20 _reserveToken,
+        string memory _name,
+        string memory _symbol
+    ) BaseBondingCurve(_alpha, _beta, _supply, _reserveToken, _name, _symbol) {}
 
     function pow(uint256 _base, uint256 _exponent) public pure override returns (uint256) {
         // _base ^ _exponent = 2 ^ (_exponent * log_2(_base))
