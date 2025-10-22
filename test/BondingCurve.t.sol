@@ -23,13 +23,18 @@ contract BondingCurveTest is Test {
         int256 d = _bc.reserveRatioDeviation();
         if (d >= 0) {
             console2.log(uint256(d), "reserveRatioDeviation");
-
         } else {
             console2.log(uint256(-d), "-reserveRatioDeviation");
         }
     }
 
-    function _testSimple(IBondingCurve _bc, uint256 _runs, uint256 _maxTokenDeviation, uint256 _maxReserveDeviation, uint256 _rrDeviation) internal {
+    function _testSimple(
+        IBondingCurve _bc,
+        uint256 _runs,
+        uint256 _maxTokenDeviation,
+        uint256 _maxReserveDeviation,
+        uint256 _rrDeviation
+    ) internal {
         console2.log("-- before --");
         logState(_bc);
         logDeviation(_bc);

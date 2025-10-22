@@ -5,8 +5,8 @@ import {IBondingCurve} from "./Interfaces/IBondingCurve.sol";
 import "forge-std/console2.sol";
 
 abstract contract BaseBondingCurve is IBondingCurve {
-    uint256 constant public DECIMAL_PRECISION = 1e18;
-    uint256 constant public ERROR_THRESHOLD = 1e12;
+    uint256 public constant DECIMAL_PRECISION = 1e18;
+    uint256 public constant ERROR_THRESHOLD = 1e12;
 
     // The bonding curve is defined as: p = A * s^B
     uint256 public immutable A; // alpha (coefficient) in the bonding curve
@@ -41,10 +41,8 @@ abstract contract BaseBondingCurve is IBondingCurve {
     function sell(uint256 _tokenAmount) external returns (uint256) {
         uint256 reserveAmount = currentBalance
             * (
-                DECIMAL_PRECISION - pow(
-                    DECIMAL_PRECISION - _tokenAmount * DECIMAL_PRECISION / currentSupply,
-                    B + DECIMAL_PRECISION
-                )
+                DECIMAL_PRECISION
+                    - pow(DECIMAL_PRECISION - _tokenAmount * DECIMAL_PRECISION / currentSupply, B + DECIMAL_PRECISION)
             ) / DECIMAL_PRECISION;
 
         currentSupply -= _tokenAmount;
@@ -61,7 +59,11 @@ abstract contract BaseBondingCurve is IBondingCurve {
         return getPrice(currentSupply);
     }
 
-    function _validatePosition(uint256 _supply, uint256 _balance, uint256 _errorThreshold) internal view returns (bool) {
+    function _validatePosition(uint256 _supply, uint256 _balance, uint256 _errorThreshold)
+        internal
+        view
+        returns (bool)
+    {
         int256 deviation = _reserveRatioDeviation(_supply, _balance);
         uint256 absoluteDiff = deviation > 0 ? uint256(deviation) : uint256(-deviation);
 
@@ -83,7 +85,8 @@ abstract contract BaseBondingCurve is IBondingCurve {
     }
 
     function _reserveRatioDeviation(uint256 _supply, uint256 _balance) internal view returns (int256) {
-        return (int256(_supply * getPrice(_supply)) - int256((B + DECIMAL_PRECISION) * _balance)) / int256(DECIMAL_PRECISION);
+        return (int256(_supply * getPrice(_supply)) - int256((B + DECIMAL_PRECISION) * _balance))
+            / int256(DECIMAL_PRECISION);
     }
 
     function reserveRatioDeviation() external view returns (int256) {
@@ -93,6 +96,7 @@ abstract contract BaseBondingCurve is IBondingCurve {
     function checkCurrentDeviation() external view returns (bool) {
         return checkCurrentDeviation(ERROR_THRESHOLD);
     }
+
     function checkCurrentDeviation(uint256 _errorThreshold) public view returns (bool) {
         return _validatePosition(currentSupply, currentBalance, _errorThreshold);
     }

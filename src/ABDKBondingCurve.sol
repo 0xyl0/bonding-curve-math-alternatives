@@ -24,9 +24,9 @@ contract ABDKBondingCurve is BaseBondingCurve {
         return toUint(ABDKMath64x64.exp_2(fromUint(_exponent).mul(ABDKMath64x64.log_2(fromUint(_base)))));
     }
 
-    function fromUint (uint256 x) internal pure returns (int128) {
+    function fromUint(uint256 x) internal pure returns (int128) {
         unchecked {
-            require (x <= 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF);
+            require(x <= 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF);
             uint256 i1 = x / DECIMAL_PRECISION;
             uint256 i2 = i1 << 64;
             // DECIMAL_PRECISION < 0xFFFFFFFFFFFFFFFF, so this is fine:
@@ -39,14 +39,14 @@ contract ABDKBondingCurve is BaseBondingCurve {
             console2.log(d, "d");
             console2.logBytes32(bytes32(d));
             */
-            return int128 (int256 (i2) + int256(d));
+            return int128(int256(i2) + int256(d));
         }
     }
 
-    function toUint (int128 x) internal pure returns (uint256) {
+    function toUint(int128 x) internal pure returns (uint256) {
         unchecked {
-            require (x >= 0);
-            uint256 y = uint256(uint128 (x));
+            require(x >= 0);
+            uint256 y = uint256(uint128(x));
             uint256 i1 = y >> 64;
             uint256 i2 = i1 * DECIMAL_PRECISION;
             uint256 d = (y - (i1 << 64)) * DECIMAL_PRECISION >> 64;

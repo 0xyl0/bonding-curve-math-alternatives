@@ -1,6 +1,6 @@
 pragma solidity ^0.8.24;
 
-import { wrap, unwrap, pow as SD59x18_pow } from "prb-math/SD59x18.sol";
+import {wrap, unwrap, pow as SD59x18_pow} from "prb-math/SD59x18.sol";
 import "./BaseBondingCurve.sol";
 
 import "forge-std/console2.sol";
