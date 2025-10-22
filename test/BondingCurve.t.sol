@@ -41,7 +41,7 @@ contract BondingCurveTest is Test {
 
         uint256 initialReserveAmount = 500 ether;
         uint256 initialTokenAmount = _bc.buy(initialReserveAmount);
-        console2.log(initialTokenAmount, "initialTokenAmount");
+        //console2.log(initialTokenAmount, "initialTokenAmount");
         uint256 reserveAmount;
         uint256 tokenAmount = initialTokenAmount;
         for (uint256 i = 0; i < _runs; i++) {
@@ -62,13 +62,13 @@ contract BondingCurveTest is Test {
     function _testFuzzBuy(IBondingCurve _bc, uint256 _x) internal {
         _bc.buy(_x);
 
-        assert(_bc.checkCurrentDeviation());
+        assertTrue(_bc.checkCurrentDeviation(), "Too much reserve ratio deviation");
     }
 
     function _testFuzzSell(IBondingCurve _bc, uint256 _x) internal {
         _bc.sell(_x);
 
-        assert(_bc.checkCurrentDeviation());
+        assertTrue(_bc.checkCurrentDeviation(), "Too much reserve ratio deviation");
     }
 
     // -- ABDK --
