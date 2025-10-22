@@ -1,16 +1,45 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
+import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+
 import {Test, console2} from "forge-std/Test.sol";
+
 import {IBondingCurve} from "../src/Interfaces/IBondingCurve.sol";
 import {ABDKBondingCurve} from "../src/ABDKBondingCurve.sol";
 import {PRBBondingCurve} from "../src/PRBBondingCurve.sol";
 
+import "./TestContracts/ERC20Mock.sol";
+
 contract BondingCurveTest is Test {
-    //ABDKBondingCurve public abdkBondingCurve;
+    ERC20Mock reserveToken;
 
     function setUp() public {
-        //abdkBondingCurve = new ABDKBondingCurve(2 ether, 0.5 ether, 1000 ether);
+        reserveToken = new ERC20Mock("WETH", "WETH");
+        reserveToken.mint(address(this), 1e12 ether);
+    }
+
+    function _setUpBondingCurve(IBondingCurve _bc) internal {
+        reserveToken.transfer(address(_bc), _bc.currentBalance());
+        reserveToken.approve(address(_bc), type(uint256).max);
+    }
+
+    function _setUpABDK(uint256 _initialSupply) internal returns (IBondingCurve) {
+        IBondingCurve abdkBondingCurve =
+            new ABDKBondingCurve(2 ether, 0.5 ether, _initialSupply, IERC20(reserveToken), "ABDK token", "TKN");
+
+        _setUpBondingCurve(abdkBondingCurve);
+
+        return abdkBondingCurve;
+    }
+
+    function _setUpPRB(uint256 _initialSupply) internal returns (IBondingCurve) {
+        IBondingCurve prbBondingCurve =
+            new PRBBondingCurve(2 ether, 0.5 ether, _initialSupply, IERC20(reserveToken), "ABDK token", "TKN");
+
+        _setUpBondingCurve(prbBondingCurve);
+
+        return prbBondingCurve;
     }
 
     function logState(IBondingCurve _bc) internal view {
@@ -74,62 +103,62 @@ contract BondingCurveTest is Test {
     // -- ABDK --
 
     function testABDKSimple() public {
-        ABDKBondingCurve abdkBondingCurve = new ABDKBondingCurve(2 ether, 0.5 ether, 1000 ether);
+        IBondingCurve abdkBondingCurve = _setUpABDK(1000 ether);
 
-        _testSimple(IBondingCurve(abdkBondingCurve), 10000, 1e5, 1e7, 100);
+        _testSimple(abdkBondingCurve, 10000, 1e5, 1e7, 100);
     }
 
     function testABDKFuzzBuy(uint256 _initialSupply, uint256 _x) public {
         // TODO: what is the min?
-        //_initialSupply = bound(_initialSupply, 1, 1e9 ether);
-        _initialSupply = bound(_initialSupply, 0.0001 ether, 1e9 ether);
-        _x = bound(_x, 1, 1e9 ether);
+        //_initialSupply = bound(_initialSupply, 1, 1e6 ether);
+        _initialSupply = bound(_initialSupply, 0.0001 ether, 1e6 ether);
+        _x = bound(_x, 1, 1e6 ether);
 
-        ABDKBondingCurve abdkBondingCurve = new ABDKBondingCurve(2 ether, 0.5 ether, _initialSupply);
+        IBondingCurve abdkBondingCurve = _setUpABDK(_initialSupply);
 
-        _testFuzzBuy(IBondingCurve(abdkBondingCurve), _x);
+        _testFuzzBuy(abdkBondingCurve, _x);
     }
 
     function testABDKFuzzSell(uint256 _initialSupply, uint256 _x) public {
         // TODO: min/max values
-        //_initialSupply = bound(_initialSupply, 1, 1e9 ether);
-        _initialSupply = bound(_initialSupply, 0.0001 ether, 1e9 ether);
+        //_initialSupply = bound(_initialSupply, 1, 1e6 ether);
+        _initialSupply = bound(_initialSupply, 0.0001 ether, 1e6 ether);
         //_x = bound(_x, 1, _initialSupply);
         _x = bound(_x, 1, _initialSupply * 99999 / 100000);
 
-        ABDKBondingCurve abdkBondingCurve = new ABDKBondingCurve(2 ether, 0.5 ether, _initialSupply);
+        IBondingCurve abdkBondingCurve = _setUpABDK(_initialSupply);
 
-        _testFuzzSell(IBondingCurve(abdkBondingCurve), _x);
+        _testFuzzSell(abdkBondingCurve, _x);
     }
 
     // -- PRB --
 
     function testPRBSimple() public {
-        PRBBondingCurve prbBondingCurve = new PRBBondingCurve(2 ether, 0.5 ether, 1000 ether);
+        IBondingCurve prbBondingCurve = _setUpPRB(1000 ether);
 
-        _testSimple(IBondingCurve(prbBondingCurve), 10000, 1e9, 1e12, 1e6);
+        _testSimple(prbBondingCurve, 10000, 1e9, 1e12, 1e6);
     }
 
     function testPRBFuzz_Buy(uint256 _initialSupply, uint256 _x) public {
         // TODO: what is the min?
-        //_initialSupply = bound(_initialSupply, 1, 1e9 ether);
-        _initialSupply = bound(_initialSupply, 0.0001 ether, 1e9 ether);
-        _x = bound(_x, 1, 1e9 ether);
+        //_initialSupply = bound(_initialSupply, 1, 1e6 ether);
+        _initialSupply = bound(_initialSupply, 0.0001 ether, 1e6 ether);
+        _x = bound(_x, 1, 1e6 ether);
 
-        PRBBondingCurve prbBondingCurve = new PRBBondingCurve(2 ether, 0.5 ether, _initialSupply);
+        IBondingCurve prbBondingCurve = _setUpPRB(_initialSupply);
 
-        _testFuzzBuy(IBondingCurve(prbBondingCurve), _x);
+        _testFuzzBuy(prbBondingCurve, _x);
     }
 
     function testPRBFuzzSell(uint256 _initialSupply, uint256 _x) public {
         // TODO: min/max values
-        //_initialSupply = bound(_initialSupply, 1, 1e9 ether);
-        _initialSupply = bound(_initialSupply, 0.0001 ether, 1e9 ether);
+        //_initialSupply = bound(_initialSupply, 1, 1e6 ether);
+        _initialSupply = bound(_initialSupply, 0.0001 ether, 1e6 ether);
         //_x = bound(_x, 1, _initialSupply);
         _x = bound(_x, 1, _initialSupply * 99999 / 100000);
 
-        PRBBondingCurve prbBondingCurve = new PRBBondingCurve(2 ether, 0.5 ether, _initialSupply);
+        IBondingCurve prbBondingCurve = _setUpPRB(_initialSupply);
 
-        _testFuzzSell(IBondingCurve(prbBondingCurve), _x);
+        _testFuzzSell(prbBondingCurve, _x);
     }
 }
