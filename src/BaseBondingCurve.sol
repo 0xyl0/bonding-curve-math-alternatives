@@ -46,6 +46,8 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
     }
 
     function buy(uint256 _reserveAmount) external returns (uint256) {
+        require(_reserveAmount > 0, "Zero amount");
+
         uint256 tokenAmount = currentSupply
             * (pow(
                     DECIMAL_PRECISION + _reserveAmount * DECIMAL_PRECISION / currentBalance,
@@ -63,6 +65,8 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
     }
 
     function sell(uint256 _tokenAmount) external returns (uint256) {
+        require(_tokenAmount > 0, "Zero amount");
+
         uint256 reserveAmount = currentBalance
             * (DECIMAL_PRECISION
                 - pow(DECIMAL_PRECISION - _tokenAmount * DECIMAL_PRECISION / currentSupply, B + DECIMAL_PRECISION))

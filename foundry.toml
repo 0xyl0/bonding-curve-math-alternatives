@@ -6,4 +6,9 @@ libs = ["lib"]
 gas_limit = 2000000000
 gas_reports = ["ABDKBondingCurve", "PRBBondingCurve"]
 
+[invariant]
+fail_on_revert = true
+runs = 1000
+depth = 100
+
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
