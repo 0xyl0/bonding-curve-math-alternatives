@@ -5,6 +5,7 @@ import "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol
 import "openzeppelin-contracts/contracts/interfaces/IERC5267.sol";
 
 interface IBondingCurve is IERC20Metadata, IERC20Permit, IERC5267 {
+    function reserveToken() external view returns (IERC20);
     function currentSupply() external view returns (uint256);
     function currentBalance() external view returns (uint256);
 

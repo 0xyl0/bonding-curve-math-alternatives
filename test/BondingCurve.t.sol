@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
 import {Test, console2} from "forge-std/Test.sol";
 
@@ -9,7 +9,7 @@ import {IBondingCurve} from "../src/Interfaces/IBondingCurve.sol";
 import {ABDKBondingCurve} from "../src/ABDKBondingCurve.sol";
 import {PRBBondingCurve} from "../src/PRBBondingCurve.sol";
 
-import "./TestContracts/ERC20Mock.sol";
+import {ERC20Mock} from "./TestContracts/ERC20Mock.sol";
 
 contract BondingCurveTest is Test {
     ERC20Mock reserveToken;
@@ -20,6 +20,7 @@ contract BondingCurveTest is Test {
     }
 
     function _setUpBondingCurve(IBondingCurve _bc) internal {
+        // TODO: get rid of
         reserveToken.transfer(address(_bc), _bc.currentBalance());
         reserveToken.approve(address(_bc), type(uint256).max);
     }
