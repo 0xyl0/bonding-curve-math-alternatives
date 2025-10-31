@@ -126,4 +126,13 @@ contract BaseHandler is Logging, Test {
         _log(_callPrefix(), functionName, "(", a, "); // -> ", r);
         _log();
     }
+
+    function logCallWithTwoReturns(string memory functionName, string memory a, string memory r1, string memory r2)
+        internal
+        view
+    {
+        _logCaller();
+        _log(_callPrefix(), functionName, "(", a, "); // -> ", r1, ", ", r2);
+        _log();
+    }
 }

@@ -12,12 +12,14 @@ import "forge-std/console2.sol";
 abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
     uint256 public constant DECIMAL_PRECISION = 1e18;
     uint256 public constant ERROR_THRESHOLD = 1e12;
+    uint256 public constant FEE_PERCENTAGE = 5e14; // 0.05%
 
     // The bonding curve is defined as: p = A * s^B
     uint256 public immutable A; // alpha (coefficient) in the bonding curve
     uint256 public immutable B; // beta (exponent) in the bonding curve
 
     IERC20 public immutable reserveToken;
+    address public immutable FEE_RECIPIENT;
 
     uint256 public currentSupply;
     uint256 public currentBalance;
@@ -28,11 +30,13 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         uint256 _supply,
         IERC20 _reserveToken,
         string memory _name,
-        string memory _symbol
+        string memory _symbol,
+        address _feeRecipient
     ) ERC20(_name, _symbol) ERC20Permit(_name) {
         A = _alpha;
         B = _beta;
         reserveToken = _reserveToken;
+        FEE_RECIPIENT = _feeRecipient;
 
         // init pool
         currentSupply = _supply;
@@ -45,7 +49,7 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         //reserveToken.transferFrom(msg.sender, address(this), initialBalance);
     }
 
-    function buy(uint256 _reserveAmount, uint256 _minTokenAmount) external returns (uint256) {
+    function buy(uint256 _reserveAmount, uint256 _minTokenAmount) external returns (uint256, uint256) {
         require(_reserveAmount > 0, "Zero amount");
 
         //uint256 gasLeft = gasleft();
@@ -56,37 +60,43 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
                 )
                 - DECIMAL_PRECISION) / DECIMAL_PRECISION;
         //console2.log(gasLeft - gasleft(), "gas used by math");
+        uint256 tokenFeeAmount = getTokenBuyFee(tokenAmount);
+        uint256 tokenNetAmount = tokenAmount - tokenFeeAmount;
 
-        require(tokenAmount >= _minTokenAmount, "Min amount not reached");
+        require(tokenNetAmount >= _minTokenAmount, "Min amount not reached");
 
         currentSupply += tokenAmount;
         currentBalance += _reserveAmount;
 
-        _mint(msg.sender, tokenAmount);
+        _mint(msg.sender, tokenNetAmount);
+        _mint(FEE_RECIPIENT, tokenFeeAmount);
         reserveToken.transferFrom(msg.sender, address(this), _reserveAmount);
 
-        return tokenAmount;
+        return (tokenNetAmount, tokenFeeAmount);
     }
 
-    function sell(uint256 _tokenAmount, uint256 _minReserveAmount) external returns (uint256) {
+    function sell(uint256 _tokenAmount, uint256 _minReserveAmount) external returns (uint256, uint256) {
         require(_tokenAmount > 0, "Zero amount");
+        uint256 tokenFeeAmount = getTokenSellFee(_tokenAmount);
+        uint256 tokenNetAmount = _tokenAmount - tokenFeeAmount;
 
         //uint256 gasLeft = gasleft();
         uint256 reserveAmount = currentBalance
             * (DECIMAL_PRECISION
-                - pow(DECIMAL_PRECISION - _tokenAmount * DECIMAL_PRECISION / currentSupply, B + DECIMAL_PRECISION))
+                - pow(DECIMAL_PRECISION - tokenNetAmount * DECIMAL_PRECISION / currentSupply, B + DECIMAL_PRECISION))
             / DECIMAL_PRECISION;
         //console2.log(gasLeft - gasleft(), "gas used by math");
 
         require(reserveAmount >= _minReserveAmount, "Min amount not reached");
 
-        currentSupply -= _tokenAmount;
+        currentSupply -= tokenNetAmount;
         currentBalance -= reserveAmount;
 
-        _burn(msg.sender, _tokenAmount);
+        _burn(msg.sender, tokenNetAmount);
+        _transfer(msg.sender, FEE_RECIPIENT, tokenFeeAmount);
         reserveToken.transfer(msg.sender, reserveAmount);
 
-        return reserveAmount;
+        return (reserveAmount, tokenFeeAmount);
     }
 
     function getPrice(uint256 _supply) public view returns (uint256) {
@@ -95,6 +105,14 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
 
     function currentPrice() external view returns (uint256) {
         return getPrice(currentSupply);
+    }
+
+    function getTokenBuyFee(uint256 _tokenAmount) public pure returns (uint256 _tokenFeeAmount) {
+        return _tokenAmount * FEE_PERCENTAGE / DECIMAL_PRECISION;
+    }
+
+    function getTokenSellFee(uint256 _tokenAmount) public pure returns (uint256 _tokenFeeAmount) {
+        return _tokenAmount * FEE_PERCENTAGE / DECIMAL_PRECISION;
     }
 
     function reserveRatioDeviation() external view returns (int256) {

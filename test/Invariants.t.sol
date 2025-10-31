@@ -16,13 +16,16 @@ contract Invariants is Test {
     uint256 constant INITIAL_SUPPLY = 3750 ether;
 
     ERC20Mock reserveToken;
+    address feeRecipient;
     IBondingCurve bondingCurve;
     InvariantsTestHandler handler;
 
     function setUp() public {
         reserveToken = new ERC20Mock("WETH", "WETH");
+        feeRecipient = makeAddr("feeRecipient");
 
-        bondingCurve = new ABDKBondingCurve(ALPHA, BETA, INITIAL_SUPPLY, IERC20(reserveToken), "ABDK token", "TKN");
+        bondingCurve =
+            new ABDKBondingCurve(ALPHA, BETA, INITIAL_SUPPLY, IERC20(reserveToken), "ABDK token", "TKN", feeRecipient);
         // TODO: get rid of
         reserveToken.mint(address(bondingCurve), bondingCurve.currentBalance());
 
@@ -42,6 +45,11 @@ contract Invariants is Test {
 
     function invariant_TokenBalances() external view {
         assertEq(bondingCurve.totalSupply(), bondingCurve.currentSupply(), "Wrong token supply");
+        assertEq(
+            bondingCurve.totalSupply(),
+            bondingCurve.balanceOf(address(handler)) + bondingCurve.balanceOf(feeRecipient),
+            "Wrong total balances"
+        );
         // Eventuall this will became Gt
         assertEq(reserveToken.balanceOf(address(bondingCurve)), bondingCurve.currentBalance(), "Wrong reserve balance");
     }
