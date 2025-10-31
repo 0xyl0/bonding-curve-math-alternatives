@@ -70,15 +70,15 @@ contract BondingCurveTest is Test {
         logDeviation(_bc);
 
         uint256 initialReserveAmount = 500 ether;
-        uint256 initialTokenAmount = _bc.buy(initialReserveAmount);
+        uint256 initialTokenAmount = _bc.buy(initialReserveAmount, 0);
         //console2.log(initialTokenAmount, "initialTokenAmount");
         uint256 reserveAmount;
         uint256 tokenAmount = initialTokenAmount;
         for (uint256 i = 0; i < _runs; i++) {
-            reserveAmount = _bc.sell(tokenAmount);
-            tokenAmount = _bc.buy(reserveAmount);
+            reserveAmount = _bc.sell(tokenAmount, 0);
+            tokenAmount = _bc.buy(reserveAmount, 0);
         }
-        reserveAmount = _bc.sell(tokenAmount);
+        reserveAmount = _bc.sell(tokenAmount, 0);
 
         console2.log("-- after --");
         logState(_bc);
@@ -89,14 +89,41 @@ contract BondingCurveTest is Test {
         assertTrue(_bc.checkCurrentDeviation(_rrDeviation), "Too much reserve ratio deviation");
     }
 
+    function _testSlippage(IBondingCurve _bc) internal {
+        uint256 initialReserveAmount = 500 ether;
+        // Reverts with a huge min number
+        vm.expectRevert("Min amount not reached");
+        _bc.buy(initialReserveAmount, type(uint256).max);
+
+        // Buy reverts with just 1 wei more
+        vm.expectRevert("Min amount not reached");
+        _bc.buy(initialReserveAmount, 7890150936205566000 + 1);
+
+        // Buy works with the exact amount
+        uint256 tokenAmount = _bc.buy(initialReserveAmount, 7890150936205566000);
+        assertEq(tokenAmount, 7890150936205566000);
+
+        // Sell reverts with a huge min number
+        vm.expectRevert("Min amount not reached");
+        _bc.sell(tokenAmount, type(uint256).max);
+
+        // Sell reverts with just 1 wei more
+        vm.expectRevert("Min amount not reached");
+        _bc.sell(tokenAmount, 499999999999999927854 + 1);
+
+        // Sell works with the exact amount
+        uint256 reserveAmount = _bc.sell(tokenAmount, 499999999999999927854);
+        assertEq(reserveAmount, 499999999999999927854);
+    }
+
     function _testFuzzBuy(IBondingCurve _bc, uint256 _x) internal {
-        _bc.buy(_x);
+        _bc.buy(_x, 0);
 
         assertTrue(_bc.checkCurrentDeviation(), "Too much reserve ratio deviation");
     }
 
     function _testFuzzSell(IBondingCurve _bc, uint256 _x) internal {
-        _bc.sell(_x);
+        _bc.sell(_x, 0);
 
         assertTrue(_bc.checkCurrentDeviation(), "Too much reserve ratio deviation");
     }
@@ -107,6 +134,12 @@ contract BondingCurveTest is Test {
         IBondingCurve abdkBondingCurve = _setUpABDK(1000 ether);
 
         _testSimple(abdkBondingCurve, 10000, 1e5, 1e7, 100);
+    }
+
+    function testABDKSlippage() public {
+        IBondingCurve abdkBondingCurve = _setUpABDK(1000 ether);
+
+        _testSlippage(abdkBondingCurve);
     }
 
     function testABDKFuzzBuy(uint256 _initialSupply, uint256 _x) public {
@@ -138,6 +171,12 @@ contract BondingCurveTest is Test {
         IBondingCurve prbBondingCurve = _setUpPRB(1000 ether);
 
         _testSimple(prbBondingCurve, 10000, 1e9, 1e12, 1e6);
+    }
+
+    function testPRBSlippage() public {
+        IBondingCurve prbBondingCurve = _setUpPRB(1000 ether);
+
+        _testSlippage(prbBondingCurve);
     }
 
     function testPRBFuzz_Buy(uint256 _initialSupply, uint256 _x) public {
