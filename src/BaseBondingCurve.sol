@@ -89,6 +89,32 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         return reserveAmount;
     }
 
+    function optimisticBuy(uint256 _reserveAmount, uint256 _tokenAmount) external {
+        require(_reserveAmount > 0, "Zero amount");
+        uint256 newSupply = currentSupply + _tokenAmount;
+        uint256 newBalance = currentBalance + _reserveAmount;
+        require(_validatePosition(newSupply, newBalance, ERROR_THRESHOLD), "Wrong amounts");
+
+        currentSupply = newSupply;
+        currentBalance = newBalance;
+
+        _mint(msg.sender, _tokenAmount);
+        reserveToken.transferFrom(msg.sender, address(this), _reserveAmount);
+    }
+
+    function optimisticSell(uint256 _tokenAmount, uint256 _reserveAmount) external {
+        require(_tokenAmount > 0, "Zero amount");
+        uint256 newSupply = currentSupply - _tokenAmount;
+        uint256 newBalance = currentBalance - _reserveAmount;
+        require(_validatePosition(newSupply, newBalance, ERROR_THRESHOLD), "Wrong amounts");
+
+        currentSupply = newSupply;
+        currentBalance = newBalance;
+
+        _burn(msg.sender, _tokenAmount);
+        reserveToken.transfer(msg.sender, _reserveAmount);
+    }
+
     function getPrice(uint256 _supply) public view returns (uint256) {
         return A * pow(_supply, B) / DECIMAL_PRECISION;
     }
@@ -109,6 +135,18 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         return _validatePosition(currentSupply, currentBalance, _errorThreshold);
     }
 
+    function validateBuy(uint256 _reserveAmount, uint256 _tokenAmount) external view returns (bool) {
+        uint256 newSupply = currentSupply + _tokenAmount;
+        uint256 newBalance = currentBalance + _reserveAmount;
+        return _validatePosition(newSupply, newBalance, ERROR_THRESHOLD);
+    }
+
+    function validateSell(uint256 _tokenAmount, uint256 _reserveAmount) external view returns (bool) {
+        uint256 newSupply = currentSupply - _tokenAmount;
+        uint256 newBalance = currentBalance - _reserveAmount;
+        return _validatePosition(newSupply, newBalance, ERROR_THRESHOLD);
+    }
+
     function _reserveRatioDeviation(uint256 _supply, uint256 _balance) internal view returns (int256) {
         return
             (int256(_supply * getPrice(_supply)) - int256((B + DECIMAL_PRECISION) * _balance))
@@ -123,7 +161,6 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         int256 deviation = _reserveRatioDeviation(_supply, _balance);
         uint256 absoluteDiff = deviation > 0 ? uint256(deviation) : uint256(-deviation);
 
-        //console2.log(absoluteDiff * DECIMAL_PRECISION / _balance, "absoluteDiff * DECIMAL_PRECISION / _balance");
         if (absoluteDiff * DECIMAL_PRECISION / _balance < _errorThreshold) return true;
         return false;
     }

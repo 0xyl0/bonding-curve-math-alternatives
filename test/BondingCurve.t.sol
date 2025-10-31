@@ -116,6 +116,34 @@ contract BondingCurveTest is Test {
         assertEq(reserveAmount, _minReserveAmount);
     }
 
+    function _testOptimistic(IBondingCurve _bc, uint256 _tokenAmount, uint256 _reserveAmount) internal {
+        uint256 initialReserveAmount = 500 ether;
+
+        _bc.optimisticBuy(initialReserveAmount, _tokenAmount);
+        assertTrue(_bc.checkCurrentDeviation());
+
+        _bc.optimisticSell(_tokenAmount, _reserveAmount);
+        assertTrue(_bc.checkCurrentDeviation());
+    }
+
+    function _testValidate(IBondingCurve _bc, uint256 _tokenAmount, uint256 _reserveAmount) internal {
+        uint256 initialReserveAmount = 500 ether;
+
+        bool result = _bc.validateBuy(initialReserveAmount, _tokenAmount);
+        assertTrue(result, "Validate Buy failed");
+
+        uint256 tokenAmount = _bc.buy(initialReserveAmount, _tokenAmount);
+        assertEq(tokenAmount, _tokenAmount);
+        assertTrue(_bc.checkCurrentDeviation());
+
+        result = _bc.validateSell(tokenAmount, _reserveAmount);
+        assertTrue(result, "Validate Sell failed");
+
+        uint256 reserveAmount = _bc.sell(tokenAmount, _reserveAmount);
+        assertEq(reserveAmount, _reserveAmount);
+        assertTrue(_bc.checkCurrentDeviation());
+    }
+
     function _testFuzzBuy(IBondingCurve _bc, uint256 _x) internal {
         _bc.buy(_x, 0);
 
@@ -140,6 +168,18 @@ contract BondingCurveTest is Test {
         IBondingCurve abdkBondingCurve = _setUpABDK(1000 ether);
 
         _testSlippage(abdkBondingCurve, 7890150936205566000, 499999999999999927854);
+    }
+
+    function testABDKOptimistic() public {
+        IBondingCurve abdkBondingCurve = _setUpABDK(1000 ether);
+
+        _testOptimistic(abdkBondingCurve, 7890150936205566000, 499999999999999927854);
+    }
+
+    function testABDKValidate() public {
+        IBondingCurve abdkBondingCurve = _setUpABDK(1000 ether);
+
+        _testValidate(abdkBondingCurve, 7890150936205566000, 499999999999999927854);
     }
 
     function testABDKFuzzBuy(uint256 _initialSupply, uint256 _x) public {
@@ -177,6 +217,18 @@ contract BondingCurveTest is Test {
         IBondingCurve prbBondingCurve = _setUpPRB(1000 ether);
 
         _testSlippage(prbBondingCurve, 7890150936205559000, 499999999999998773590);
+    }
+
+    function testPRBOptimistic() public {
+        IBondingCurve prbBondingCurve = _setUpPRB(1000 ether);
+
+        _testOptimistic(prbBondingCurve, 7890150936205559000, 499999999999998773590);
+    }
+
+    function testPRBValidate() public {
+        IBondingCurve prbBondingCurve = _setUpPRB(1000 ether);
+
+        _testValidate(prbBondingCurve, 7890150936205559000, 499999999999998773590);
     }
 
     function testPRBFuzz_Buy(uint256 _initialSupply, uint256 _x) public {
