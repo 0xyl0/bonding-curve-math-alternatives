@@ -97,6 +97,24 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         return getPrice(currentSupply);
     }
 
+    function reserveRatioDeviation() external view returns (int256) {
+        return _reserveRatioDeviation(currentSupply, currentBalance);
+    }
+
+    function checkCurrentDeviation() external view returns (bool) {
+        return checkCurrentDeviation(ERROR_THRESHOLD);
+    }
+
+    function checkCurrentDeviation(uint256 _errorThreshold) public view returns (bool) {
+        return _validatePosition(currentSupply, currentBalance, _errorThreshold);
+    }
+
+    function _reserveRatioDeviation(uint256 _supply, uint256 _balance) internal view returns (int256) {
+        return
+            (int256(_supply * getPrice(_supply)) - int256((B + DECIMAL_PRECISION) * _balance))
+                / int256(DECIMAL_PRECISION);
+    }
+
     function _validatePosition(uint256 _supply, uint256 _balance, uint256 _errorThreshold)
         internal
         view
@@ -108,36 +126,6 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         //console2.log(absoluteDiff * DECIMAL_PRECISION / _balance, "absoluteDiff * DECIMAL_PRECISION / _balance");
         if (absoluteDiff * DECIMAL_PRECISION / _balance < _errorThreshold) return true;
         return false;
-    }
-
-    function validateBuy(uint256 _tokenAmount, uint256 _reserveAmount) external view returns (bool) {
-        uint256 newSupply = currentSupply + _tokenAmount;
-        uint256 newBalance = currentBalance + _reserveAmount;
-        return _validatePosition(newSupply, newBalance, ERROR_THRESHOLD);
-    }
-
-    function validateSell(uint256 _tokenAmount, uint256 _reserveAmount) external view returns (bool) {
-        uint256 newSupply = currentSupply - _tokenAmount;
-        uint256 newBalance = currentBalance - _reserveAmount;
-        return _validatePosition(newSupply, newBalance, ERROR_THRESHOLD);
-    }
-
-    function _reserveRatioDeviation(uint256 _supply, uint256 _balance) internal view returns (int256) {
-        return
-            (int256(_supply * getPrice(_supply)) - int256((B + DECIMAL_PRECISION) * _balance))
-                / int256(DECIMAL_PRECISION);
-    }
-
-    function reserveRatioDeviation() external view returns (int256) {
-        return _reserveRatioDeviation(currentSupply, currentBalance);
-    }
-
-    function checkCurrentDeviation() external view returns (bool) {
-        return checkCurrentDeviation(ERROR_THRESHOLD);
-    }
-
-    function checkCurrentDeviation(uint256 _errorThreshold) public view returns (bool) {
-        return _validatePosition(currentSupply, currentBalance, _errorThreshold);
     }
 
     // Unimplemented functions

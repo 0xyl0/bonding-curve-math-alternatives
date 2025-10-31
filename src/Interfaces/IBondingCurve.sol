@@ -15,8 +15,6 @@ interface IBondingCurve is IERC20Metadata, IERC20Permit, IERC5267 {
     function getPrice(uint256 _supply) external view returns (uint256);
     function currentPrice() external view returns (uint256);
 
-    function validateBuy(uint256 _amount, uint256 _reserveAmount) external view returns (bool);
-    function validateSell(uint256 _amount, uint256 _reserveAmount) external view returns (bool);
     function reserveRatioDeviation() external view returns (int256);
     function checkCurrentDeviation() external view returns (bool);
     function checkCurrentDeviation(uint256 _errorThreshold) external view returns (bool);
