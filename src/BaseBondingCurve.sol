@@ -45,7 +45,7 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         //reserveToken.transferFrom(msg.sender, address(this), initialBalance);
     }
 
-    function buy(uint256 _reserveAmount) external returns (uint256) {
+    function buy(uint256 _reserveAmount, uint256 _minTokenAmount) external returns (uint256) {
         require(_reserveAmount > 0, "Zero amount");
 
         //uint256 gasLeft = gasleft();
@@ -57,6 +57,8 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
                 - DECIMAL_PRECISION) / DECIMAL_PRECISION;
         //console2.log(gasLeft - gasleft(), "gas used by math");
 
+        require(tokenAmount >= _minTokenAmount, "Min amount not reached");
+
         currentSupply += tokenAmount;
         currentBalance += _reserveAmount;
 
@@ -66,7 +68,7 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         return tokenAmount;
     }
 
-    function sell(uint256 _tokenAmount) external returns (uint256) {
+    function sell(uint256 _tokenAmount, uint256 _minReserveAmount) external returns (uint256) {
         require(_tokenAmount > 0, "Zero amount");
 
         //uint256 gasLeft = gasleft();
@@ -75,6 +77,8 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
                 - pow(DECIMAL_PRECISION - _tokenAmount * DECIMAL_PRECISION / currentSupply, B + DECIMAL_PRECISION))
             / DECIMAL_PRECISION;
         //console2.log(gasLeft - gasleft(), "gas used by math");
+
+        require(reserveAmount >= _minReserveAmount, "Min amount not reached");
 
         currentSupply -= _tokenAmount;
         currentBalance -= reserveAmount;
