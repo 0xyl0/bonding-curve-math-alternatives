@@ -48,8 +48,8 @@ contract InvariantsTestHandler is BaseHandler {
         _logState();
 
         //uint256 tokenAmount = bondingCurve.buy(_reserveAmount, 0);
-        try bondingCurve.buy(_reserveAmount, 0) returns (uint256 tokenAmount) {
-            logCallWithReturn("buy", _reserveAmount.decimal(), tokenAmount.decimal());
+        try bondingCurve.buy(_reserveAmount, 0) returns (uint256 tokenNetAmount, uint256 tokenFeeAmount) {
+            logCallWithTwoReturns("buy", _reserveAmount.decimal(), tokenNetAmount.decimal(), tokenFeeAmount.decimal());
             //assertGt(tokenAmount, 0, "Should get tokens on buy");
         } catch Error(string memory reason) {
             // catch failing revert() and require()
@@ -75,8 +75,8 @@ contract InvariantsTestHandler is BaseHandler {
         _logState();
 
         //uint256 reserveAmount = bondingCurve.sell(_tokenAmount, 0);
-        try bondingCurve.sell(_tokenAmount, 0) returns (uint256 reserveAmount) {
-            logCallWithReturn("sell", _tokenAmount.decimal(), reserveAmount.decimal());
+        try bondingCurve.sell(_tokenAmount, 0) returns (uint256 reserveAmount, uint256 tokenFeeAmount) {
+            logCallWithTwoReturns("sell", _tokenAmount.decimal(), reserveAmount.decimal(), tokenFeeAmount.decimal());
             //assertGt(reserveAmount, 0, "Should get reserve tokens on sell");
         } catch Error(string memory reason) {
             // catch failing revert() and require()

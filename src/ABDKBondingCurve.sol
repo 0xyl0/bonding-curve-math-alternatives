@@ -15,8 +15,9 @@ contract ABDKBondingCurve is BaseBondingCurve {
         uint256 _supply,
         IERC20 _reserveToken,
         string memory _name,
-        string memory _symbol
-    ) BaseBondingCurve(_alpha, _beta, _supply, _reserveToken, _name, _symbol) {}
+        string memory _symbol,
+        address _feeRecipient
+    ) BaseBondingCurve(_alpha, _beta, _supply, _reserveToken, _name, _symbol, _feeRecipient) {}
 
     function pow(uint256 _base, uint256 _exponent) public pure override returns (uint256) {
         // _base ^ _exponent = 2 ^ (_exponent * log_2(_base))

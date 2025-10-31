@@ -5,15 +5,25 @@ import "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol
 import "openzeppelin-contracts/contracts/interfaces/IERC5267.sol";
 
 interface IBondingCurve is IERC20Metadata, IERC20Permit, IERC5267 {
+    function FEE_PERCENTAGE() external view returns (uint256);
+    function FEE_RECIPIENT() external view returns (address);
+
     function reserveToken() external view returns (IERC20);
     function currentSupply() external view returns (uint256);
     function currentBalance() external view returns (uint256);
 
-    function buy(uint256 _reserveAmount, uint256 _minTokenAmount) external returns (uint256 tokenAmount);
-    function sell(uint256 _tokenAmount, uint256 _minReserveAmount) external returns (uint256 reserveAmount);
+    function buy(uint256 _reserveAmount, uint256 _minTokenAmount)
+        external
+        returns (uint256 tokenAmount, uint256 tokenFeeAmount);
+    function sell(uint256 _tokenAmount, uint256 _minReserveAmount)
+        external
+        returns (uint256 reserveAmount, uint256 tokenFeeAmount);
 
     function getPrice(uint256 _supply) external view returns (uint256);
     function currentPrice() external view returns (uint256);
+
+    function getTokenBuyFee(uint256 _tokenAmount) external view returns (uint256 _tokenFeeAmount);
+    function getTokenSellFee(uint256 _tokenAmount) external view returns (uint256 _tokenFeeAmount);
 
     function reserveRatioDeviation() external view returns (int256);
     function checkCurrentDeviation() external view returns (bool);
