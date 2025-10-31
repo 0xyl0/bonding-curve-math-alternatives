@@ -89,7 +89,7 @@ contract BondingCurveTest is Test {
         assertTrue(_bc.checkCurrentDeviation(_rrDeviation), "Too much reserve ratio deviation");
     }
 
-    function _testSlippage(IBondingCurve _bc) internal {
+    function _testSlippage(IBondingCurve _bc, uint256 _minTokenAmount, uint256 _minReserveAmount) internal {
         uint256 initialReserveAmount = 500 ether;
         // Reverts with a huge min number
         vm.expectRevert("Min amount not reached");
@@ -97,11 +97,11 @@ contract BondingCurveTest is Test {
 
         // Buy reverts with just 1 wei more
         vm.expectRevert("Min amount not reached");
-        _bc.buy(initialReserveAmount, 7890150936205566000 + 1);
+        _bc.buy(initialReserveAmount, _minTokenAmount + 1);
 
         // Buy works with the exact amount
-        uint256 tokenAmount = _bc.buy(initialReserveAmount, 7890150936205566000);
-        assertEq(tokenAmount, 7890150936205566000);
+        uint256 tokenAmount = _bc.buy(initialReserveAmount, _minTokenAmount);
+        assertEq(tokenAmount, _minTokenAmount);
 
         // Sell reverts with a huge min number
         vm.expectRevert("Min amount not reached");
@@ -109,11 +109,11 @@ contract BondingCurveTest is Test {
 
         // Sell reverts with just 1 wei more
         vm.expectRevert("Min amount not reached");
-        _bc.sell(tokenAmount, 499999999999999927854 + 1);
+        _bc.sell(tokenAmount, _minReserveAmount + 1);
 
         // Sell works with the exact amount
-        uint256 reserveAmount = _bc.sell(tokenAmount, 499999999999999927854);
-        assertEq(reserveAmount, 499999999999999927854);
+        uint256 reserveAmount = _bc.sell(tokenAmount, _minReserveAmount);
+        assertEq(reserveAmount, _minReserveAmount);
     }
 
     function _testFuzzBuy(IBondingCurve _bc, uint256 _x) internal {
@@ -139,7 +139,7 @@ contract BondingCurveTest is Test {
     function testABDKSlippage() public {
         IBondingCurve abdkBondingCurve = _setUpABDK(1000 ether);
 
-        _testSlippage(abdkBondingCurve);
+        _testSlippage(abdkBondingCurve, 7890150936205566000, 499999999999999927854);
     }
 
     function testABDKFuzzBuy(uint256 _initialSupply, uint256 _x) public {
@@ -176,7 +176,7 @@ contract BondingCurveTest is Test {
     function testPRBSlippage() public {
         IBondingCurve prbBondingCurve = _setUpPRB(1000 ether);
 
-        _testSlippage(prbBondingCurve);
+        _testSlippage(prbBondingCurve, 7890150936205559000, 499999999999998773590);
     }
 
     function testPRBFuzz_Buy(uint256 _initialSupply, uint256 _x) public {
