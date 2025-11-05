@@ -24,11 +24,18 @@ contract InvariantsTestHandler is BaseHandler {
         info("Bonding curve balances");
         info(
             "reserve = ",
-            (bondingCurve.currentBalance()).decimal(),
+            (bondingCurve.virtualBalance()).decimal(),
             ", token = ",
-            (bondingCurve.currentSupply()).decimal()
+            (bondingCurve.virtualSupply()).decimal()
         );
         info("Current price = ", (bondingCurve.currentPrice()).decimal());
+        info(
+            "Floor: reserve = ",
+            (bondingCurve.floorBalance()).decimal(),
+            ", token = ",
+            (bondingCurve.floorSupply()).decimal()
+        );
+        info("Floor price = ", (bondingCurve.floorPrice()).decimal());
         info("Handler balances");
         info(
             "reserve = ",
@@ -42,7 +49,7 @@ contract InvariantsTestHandler is BaseHandler {
         // _reserveAmount = vm.bound(_reserveAmount, 1, 1e6 ether);
         // vm.assume(_reserveAmount > 0);
         // To avoid purchases that return zero tokens
-        vm.assume(_reserveAmount > bondingCurve.currentBalance() * 10 / DECIMAL_PRECISION);
+        vm.assume(_reserveAmount > bondingCurve.virtualBalance() * 10 / DECIMAL_PRECISION);
         vm.assume(_reserveAmount <= reserveToken.balanceOf(address(this)));
 
         _logState();
@@ -65,11 +72,11 @@ contract InvariantsTestHandler is BaseHandler {
     }
 
     function sell(uint256 _tokenAmount) external {
-        // _tokenAmount = bound(_tokenAmount, 1, bondingCurve.currentSupply() * 99999 / 100000);
+        // _tokenAmount = bound(_tokenAmount, 1, bondingCurve.virtualSupply() * 99999 / 100000);
         // vm.assume(_tokenAmount > 0);
         // To avoid sales that return zero reserve tokens
-        vm.assume(_tokenAmount > bondingCurve.currentSupply() * 10 / DECIMAL_PRECISION);
-        vm.assume(_tokenAmount <= bondingCurve.currentSupply() * 99999 / 100000);
+        vm.assume(_tokenAmount > bondingCurve.virtualSupply() * 10 / DECIMAL_PRECISION);
+        vm.assume(_tokenAmount <= bondingCurve.virtualSupply() * 99999 / 100000);
         vm.assume(_tokenAmount <= bondingCurve.balanceOf(address(this)));
 
         _logState();
@@ -86,6 +93,59 @@ contract InvariantsTestHandler is BaseHandler {
         } catch (bytes memory reason) {
             // catch failing assert()
             logCall("sell", _tokenAmount.decimal());
+            console2.logBytes(reason);
+            revert();
+        }
+    }
+
+    function floorSellAndBurn(uint256 _tokenAmount) external {
+        // _tokenAmount = bound(_tokenAmount, 1, bondingCurve.virtualSupply() * 99999 / 100000);
+        // vm.assume(_tokenAmount > 0);
+        // To avoid sales that return zero reserve tokens
+        vm.assume(_tokenAmount > bondingCurve.virtualSupply() * 10 / DECIMAL_PRECISION);
+        vm.assume(_tokenAmount <= bondingCurve.virtualSupply() - bondingCurve.floorSupply()); // * 99999 / 100000);
+        vm.assume(_tokenAmount <= bondingCurve.balanceOf(address(this)));
+
+        _logState();
+
+        try bondingCurve.floorSellAndBurn(_tokenAmount) returns (uint256 reserveAmount) {
+            logCallWithReturn("floorSellAndBurn", _tokenAmount.decimal(), reserveAmount.decimal());
+            //assertGt(tokenAmount, 0, "Should get tokens on buy");
+        } catch Error(string memory reason) {
+            // catch failing revert() and require()
+            logCall("floorSellAndBurn", _tokenAmount.decimal());
+            info(reason);
+            revert();
+        } catch (bytes memory reason) {
+            // catch failing assert()
+            logCall("floorSellAndBurn", _tokenAmount.decimal());
+            console2.logBytes(reason);
+            revert();
+        }
+    }
+
+    function buyFloorSellAndBurn(uint256 _reserveAmount) external {
+        // To avoid purchases that return zero tokens
+        vm.assume(_reserveAmount > bondingCurve.virtualBalance() * 10 / DECIMAL_PRECISION);
+        vm.assume(_reserveAmount <= reserveToken.balanceOf(address(this)));
+
+        _logState();
+
+        try bondingCurve.buyFloorSellAndBurn(_reserveAmount, 0) returns (
+            uint256 tokenAmount, uint256 sellReserveAmount
+        ) {
+            logCallWithTwoReturns(
+                "buyFloorSellAndBurn", _reserveAmount.decimal(), tokenAmount.decimal(), sellReserveAmount.decimal()
+            );
+            //assertGt(tokenAmount, 0, "Should get tokens on buy");
+        } catch Error(string memory reason) {
+            // catch failing revert() and require()
+            logCall("buyFloorSellAndBurn", _reserveAmount.decimal());
+            info(reason);
+            revert();
+        } catch (bytes memory reason) {
+            // catch failing assert()
+            logCall("buyFloorSellAndBurn", _reserveAmount.decimal());
             console2.logBytes(reason);
             revert();
         }
