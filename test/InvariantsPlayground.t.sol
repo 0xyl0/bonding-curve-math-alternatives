@@ -1,8 +1,9 @@
 pragma solidity ^0.8.24;
 
-import {Invariants} from "./Invariants.t.sol";
+import {InvariantsBaseTest} from "./TestContracts/InvariantsBaseTest.t.sol";
+import {console2} from "forge-std/Test.sol";
 
-contract InvariantsPlayground is Invariants {
+contract InvariantsPlayground is InvariantsBaseTest {
     function testInvariantReplay1() public {
         // Bonding curve balances
         // reserve = 2_500.000000221292925 ether, token = 3_750 ether

@@ -23,9 +23,6 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
     address public immutable FEE_RECIPIENT;
     address public immutable BURN_RECIPIENT;
 
-    // The supply corresponding to the current state of the curve, i.e., the x axis of the current point
-    // It's equal to the real total supply minus the floor supply
-    uint256 public virtualSupply;
     // The reserve balance corresponding to the current state of the curve, i.e., the y axis of the current point
     // It's equal to the real balance of this contract minus the floor balance
     uint256 public virtualBalance;
@@ -56,7 +53,6 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         BURN_RECIPIENT = _burnRecipient;
 
         // init pool
-        virtualSupply = _supply;
         floorSupply = _floorSupply;
         uint256 initialBalance = _supply * getPrice(_supply) / (B + DECIMAL_PRECISION);
         uint256 initialFloorBalance = _floorSupply * getPrice(_floorSupply) / (B + DECIMAL_PRECISION);
@@ -74,7 +70,7 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
     function buy(uint256 _reserveAmount, uint256 _minTokenAmount) external returns (uint256, uint256) {
         require(_reserveAmount > 0, "Zero amount");
 
-        uint256 initialVirtualSupply = virtualSupply;
+        uint256 initialVirtualSupply = virtualSupply();
         uint256 initialVirtualBalance = virtualBalance;
 
         uint256 tokenAmount = _calcBuyAmount(_reserveAmount, initialVirtualSupply, initialVirtualBalance);
@@ -83,7 +79,6 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
 
         require(tokenNetAmount >= _minTokenAmount, "Min amount not reached");
 
-        virtualSupply = initialVirtualSupply + tokenAmount;
         virtualBalance = initialVirtualBalance + _reserveAmount;
 
         _mint(msg.sender, tokenNetAmount);
@@ -112,12 +107,11 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         uint256 tokenFeeAmount = getTokenSellFee(_tokenAmount);
         uint256 tokenNetAmount = _tokenAmount - tokenFeeAmount;
 
-        uint256 initialVirtualSupply = virtualSupply;
+        uint256 initialVirtualSupply = virtualSupply();
         uint256 initialVirtualBalance = virtualBalance;
         uint256 reserveAmount = _calcSellAmount(tokenNetAmount, initialVirtualSupply, initialVirtualBalance);
         require(reserveAmount >= _minReserveAmount, "Min amount not reached");
 
-        virtualSupply = initialVirtualSupply - tokenNetAmount;
         virtualBalance = initialVirtualBalance - reserveAmount;
 
         _burn(msg.sender, tokenNetAmount);
@@ -149,7 +143,7 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         uint256 reserveAmount = _calcBuyOut(_tokenAmount, initialFloorSupply, initialFloorBalance);
 
         uint256 newFloorSupply = initialFloorSupply + _tokenAmount;
-        require(newFloorSupply <= virtualSupply, "Floor can surpass virtual state");
+        require(newFloorSupply <= virtualSupply(), "Floor can surpass virtual state");
         uint256 newFloorBalance = initialFloorBalance + reserveAmount;
         assert(newFloorBalance <= virtualBalance);
         floorSupply = newFloorSupply;
@@ -166,12 +160,11 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
     // to prevent accidents.
     function buyFloorSellAndBurn(uint256 _reserveAmount, uint256 _minTokenAmount) external returns (uint256, uint256) {
         // Buy at the current price
-        uint256 initialVirtualSupply = virtualSupply;
+        uint256 initialVirtualSupply = virtualSupply();
         uint256 initialVirtualBalance = virtualBalance;
         uint256 tokenBurnAmount = _calcBuyAmount(_reserveAmount, initialVirtualSupply, initialVirtualBalance);
         require(tokenBurnAmount >= _minTokenAmount, "Min amount not reached");
 
-        virtualSupply = initialVirtualSupply + tokenBurnAmount;
         virtualBalance = initialVirtualBalance + _reserveAmount;
 
         // Sell at the floor price
@@ -207,12 +200,18 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         return reserveAmount;
     }
 
+    // The supply corresponding to the current state of the curve, i.e., the x axis of the current point
+    // It's equal to the real total supply minus the floor supply
+    function virtualSupply() public view returns (uint256) {
+        return floorSupply + totalSupply();
+    }
+
     function getPrice(uint256 _supply) public view returns (uint256) {
         return A * pow(_supply, B) / DECIMAL_PRECISION;
     }
 
     function currentPrice() external view returns (uint256) {
-        return getPrice(virtualSupply);
+        return getPrice(virtualSupply());
     }
 
     function floorPrice() external view returns (uint256) {
@@ -228,7 +227,7 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
     }
 
     function reserveRatioDeviation() external view returns (int256) {
-        return _reserveRatioDeviation(virtualSupply, virtualBalance);
+        return _reserveRatioDeviation(virtualSupply(), virtualBalance);
     }
 
     function checkCurrentDeviation() external view returns (bool) {
@@ -236,7 +235,7 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
     }
 
     function checkCurrentDeviation(uint256 _errorThreshold) public view returns (bool) {
-        return _validatePosition(virtualSupply, virtualBalance, _errorThreshold);
+        return _validatePosition(virtualSupply(), virtualBalance, _errorThreshold);
     }
 
     function _reserveRatioDeviation(uint256 _supply, uint256 _balance) internal view returns (int256) {
