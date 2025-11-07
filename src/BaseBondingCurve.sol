@@ -36,7 +36,7 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
     constructor(
         uint256 _alpha,
         uint256 _beta,
-        uint256 _supply,
+        uint256 _virtualSupply,
         uint256 _floorSupply,
         IERC20 _reserveToken,
         string memory _name,
@@ -44,7 +44,7 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         address _feeRecipient,
         address _burnRecipient
     ) ERC20(_name, _symbol) ERC20Permit(_name) {
-        require(_floorSupply <= _supply, "Floor cannot be above current state");
+        require(_floorSupply <= _virtualSupply, "Floor cannot be above current state");
 
         A = _alpha;
         B = _beta;
@@ -54,16 +54,16 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
 
         // init pool
         floorSupply = _floorSupply;
-        uint256 initialBalance = _supply * getPrice(_supply) / (B + DECIMAL_PRECISION);
+        uint256 initialVirtualBalance = _virtualSupply * getPrice(_virtualSupply) / (B + DECIMAL_PRECISION);
         uint256 initialFloorBalance = _floorSupply * getPrice(_floorSupply) / (B + DECIMAL_PRECISION);
-        assert(initialFloorBalance <= initialFloorBalance);
-        virtualBalance = initialBalance;
+        assert(initialFloorBalance <= initialVirtualBalance);
+        virtualBalance = initialVirtualBalance;
         floorBalance = initialFloorBalance;
 
         // token operations
-        _mint(msg.sender, _supply - _floorSupply);
+        _mint(msg.sender, _virtualSupply - _floorSupply); // equals initial total supply
         // TODO:
-        //reserveToken.transferFrom(msg.sender, address(this), initialBalance - initialFloorBalance);
+        //reserveToken.transferFrom(msg.sender, address(this), initialVirtualBalance - initialFloorBalance);
         //reserveToken.transferFrom(msg.sender, BURN_RECIPIENT, initialFloorBalance);
     }
 
@@ -88,6 +88,7 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         return (tokenNetAmount, tokenFeeAmount);
     }
 
+    // This function moves virtual supply upwards (right)
     function _calcBuyAmount(uint256 _reserveAmount, uint256 _supply, uint256 _balance) internal view returns (uint256) {
         require(_reserveAmount > 0, "Zero amount");
 
@@ -121,6 +122,7 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         return (reserveAmount, tokenFeeAmount);
     }
 
+    // This function moves virtual supply downwards (left)
     function _calcSellAmount(uint256 _tokenAmount, uint256 _supply, uint256 _balance) internal view returns (uint256) {
         require(_tokenAmount > 0, "Zero amount");
 
@@ -135,15 +137,15 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
     }
 
     // For now this function is permissionless as it benefits the system.
-    // Eventually we may protect it so it can be called from another contract to integrate it with other actions,
-    // to prevent accidents.
+    // Eventually we may protect it so it can only be called from another contract to integrate it with other actions,
+    // to prevent accidents where users lose funds.
     function floorSellAndBurn(uint256 _tokenAmount) external returns (uint256) {
         uint256 initialFloorSupply = floorSupply;
         uint256 initialFloorBalance = floorBalance;
-        uint256 reserveAmount = _calcBuyOut(_tokenAmount, initialFloorSupply, initialFloorBalance);
+        uint256 reserveAmount = _calcSellFromFloorUpwards(_tokenAmount, initialFloorSupply, initialFloorBalance);
 
         uint256 newFloorSupply = initialFloorSupply + _tokenAmount;
-        require(newFloorSupply <= virtualSupply(), "Floor can surpass virtual state");
+        require(newFloorSupply <= virtualSupply(), "Floor cannot surpass virtual state");
         uint256 newFloorBalance = initialFloorBalance + reserveAmount;
         assert(newFloorBalance <= virtualBalance);
         floorSupply = newFloorSupply;
@@ -156,8 +158,8 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
     }
 
     // For now this function is permissionless as it benefits the system.
-    // Eventually we may protect it so it can be called from another contract to integrate it with other actions,
-    // to prevent accidents.
+    // Eventually we may protect it so it can only be called from another contract to integrate it with other actions,
+    // to prevent accidents where users lose funds.
     function buyFloorSellAndBurn(uint256 _reserveAmount, uint256 _minTokenAmount) external returns (uint256, uint256) {
         // Buy at the current price
         uint256 initialVirtualSupply = virtualSupply();
@@ -170,7 +172,7 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         // Sell at the floor price
         uint256 initialFloorSupply = floorSupply;
         uint256 initialFloorBalance = floorBalance;
-        uint256 sellReserveAmount = _calcBuyOut(tokenBurnAmount, initialFloorSupply, initialFloorBalance);
+        uint256 sellReserveAmount = _calcSellFromFloorUpwards(tokenBurnAmount, initialFloorSupply, initialFloorBalance);
         assert(sellReserveAmount < _reserveAmount);
 
         floorSupply = initialFloorSupply + tokenBurnAmount;
@@ -183,14 +185,14 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         return (tokenBurnAmount, sellReserveAmount);
     }
 
-    function _calcBuyOut(uint256 _tokenAmount, uint256 _supply, uint256 _balance) internal view returns (uint256) {
+    // This function moves floor supply upwards (right)
+    function _calcSellFromFloorUpwards(uint256 _tokenAmount, uint256 _supply, uint256 _balance)
+        internal
+        view
+        returns (uint256)
+    {
         require(_tokenAmount > 0, "Zero amount");
 
-        /*
-        console2.log(_balance, "_balance");
-        console2.log(_supply, "_supply");
-        console2.log(_tokenAmount, "_tokenAmount");
-        */
         //uint256 gasLeft = gasleft();
         uint256 reserveAmount = _balance
             * (pow(DECIMAL_PRECISION + _tokenAmount * DECIMAL_PRECISION / _supply, B + DECIMAL_PRECISION)
