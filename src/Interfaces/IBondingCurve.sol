@@ -7,6 +7,7 @@ import "openzeppelin-contracts/contracts/interfaces/IERC5267.sol";
 interface IBondingCurve is IERC20Metadata, IERC20Permit, IERC5267 {
     function FEE_PERCENTAGE() external view returns (uint256);
     function FEE_RECIPIENT() external view returns (address);
+    function BURN_RECIPIENT() external view returns (address);
 
     function reserveToken() external view returns (IERC20);
     function virtualSupply() external view returns (uint256);
