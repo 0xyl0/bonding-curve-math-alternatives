@@ -8,7 +8,9 @@ contract Invariants is InvariantsBaseTest {
     }
 
     function invariant_TokenBalances() external view {
-        assertEq(bondingCurve.totalSupply(), bondingCurve.virtualSupply() - bondingCurve.floorSupply(), "Wrong token supply");
+        assertEq(
+            bondingCurve.totalSupply(), bondingCurve.virtualSupply() - bondingCurve.floorSupply(), "Wrong token supply"
+        );
         assertEq(bondingCurve.virtualSupply(), handler.virtualSupply(), "Wrong virtual supply");
         assertEq(
             bondingCurve.totalSupply(),

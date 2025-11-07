@@ -10,7 +10,7 @@ import {ABDKBondingCurve} from "src/ABDKBondingCurve.sol";
 import {ERC20Mock} from "./ERC20Mock.sol";
 import {InvariantsTestHandler} from "./InvariantsTestHandler.t.sol";
 
-contract InvariantsBaseTest  is Test {
+contract InvariantsBaseTest is Test {
     uint256 constant ALPHA = 0.01632993162 ether;
     uint256 constant BETA = 0.5 ether;
     uint256 constant INITIAL_SUPPLY = 3750 ether;
