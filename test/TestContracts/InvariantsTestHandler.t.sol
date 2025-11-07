@@ -14,10 +14,13 @@ contract InvariantsTestHandler is BaseHandler {
     IBondingCurve bondingCurve;
     ERC20Mock reserveToken;
 
+    uint256 public virtualSupply;
+
     constructor(IBondingCurve _bc) {
         bondingCurve = _bc;
         reserveToken = ERC20Mock(address(_bc.reserveToken()));
         reserveToken.approve(address(_bc), type(uint256).max);
+        virtualSupply = _bc.virtualSupply();
     }
 
     function _logState() internal view {
@@ -56,6 +59,7 @@ contract InvariantsTestHandler is BaseHandler {
 
         //uint256 tokenAmount = bondingCurve.buy(_reserveAmount, 0);
         try bondingCurve.buy(_reserveAmount, 0) returns (uint256 tokenNetAmount, uint256 tokenFeeAmount) {
+            virtualSupply += tokenNetAmount + tokenFeeAmount;
             logCallWithTwoReturns("buy", _reserveAmount.decimal(), tokenNetAmount.decimal(), tokenFeeAmount.decimal());
             //assertGt(tokenAmount, 0, "Should get tokens on buy");
         } catch Error(string memory reason) {
@@ -83,6 +87,7 @@ contract InvariantsTestHandler is BaseHandler {
 
         //uint256 reserveAmount = bondingCurve.sell(_tokenAmount, 0);
         try bondingCurve.sell(_tokenAmount, 0) returns (uint256 reserveAmount, uint256 tokenFeeAmount) {
+            virtualSupply -= (_tokenAmount - tokenFeeAmount);
             logCallWithTwoReturns("sell", _tokenAmount.decimal(), reserveAmount.decimal(), tokenFeeAmount.decimal());
             //assertGt(reserveAmount, 0, "Should get reserve tokens on sell");
         } catch Error(string memory reason) {
@@ -134,6 +139,7 @@ contract InvariantsTestHandler is BaseHandler {
         try bondingCurve.buyFloorSellAndBurn(_reserveAmount, 0) returns (
             uint256 tokenAmount, uint256 sellReserveAmount
         ) {
+            virtualSupply += tokenAmount;
             logCallWithTwoReturns(
                 "buyFloorSellAndBurn", _reserveAmount.decimal(), tokenAmount.decimal(), sellReserveAmount.decimal()
             );

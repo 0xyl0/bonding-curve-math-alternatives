@@ -23,9 +23,6 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
     address public immutable FEE_RECIPIENT;
     address public immutable BURN_RECIPIENT;
 
-    // The supply corresponding to the current state of the curve, i.e., the x axis of the current point
-    // It's equal to the real total supply minus the floor supply
-    //uint256 public virtualSupply;
     // The reserve balance corresponding to the current state of the curve, i.e., the y axis of the current point
     // It's equal to the real balance of this contract minus the floor balance
     uint256 public virtualBalance;
@@ -56,7 +53,6 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         BURN_RECIPIENT = _burnRecipient;
 
         // init pool
-        //virtualSupply = _supply;
         floorSupply = _floorSupply;
         uint256 initialBalance = _supply * getPrice(_supply) / (B + DECIMAL_PRECISION);
         uint256 initialFloorBalance = _floorSupply * getPrice(_floorSupply) / (B + DECIMAL_PRECISION);
@@ -83,7 +79,6 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
 
         require(tokenNetAmount >= _minTokenAmount, "Min amount not reached");
 
-        //virtualSupply = initialVirtualSupply + tokenAmount;
         virtualBalance = initialVirtualBalance + _reserveAmount;
 
         _mint(msg.sender, tokenNetAmount);
@@ -117,7 +112,6 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         uint256 reserveAmount = _calcSellAmount(tokenNetAmount, initialVirtualSupply, initialVirtualBalance);
         require(reserveAmount >= _minReserveAmount, "Min amount not reached");
 
-        //virtualSupply = initialVirtualSupply - tokenNetAmount;
         virtualBalance = initialVirtualBalance - reserveAmount;
 
         _burn(msg.sender, tokenNetAmount);
@@ -171,7 +165,6 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         uint256 tokenBurnAmount = _calcBuyAmount(_reserveAmount, initialVirtualSupply, initialVirtualBalance);
         require(tokenBurnAmount >= _minTokenAmount, "Min amount not reached");
 
-        //virtualSupply = initialVirtualSupply + tokenBurnAmount;
         virtualBalance = initialVirtualBalance + _reserveAmount;
 
         // Sell at the floor price
@@ -207,6 +200,8 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         return reserveAmount;
     }
 
+    // The supply corresponding to the current state of the curve, i.e., the x axis of the current point
+    // It's equal to the real total supply minus the floor supply
     function virtualSupply() public view returns (uint256) {
         return floorSupply + totalSupply();
     }
