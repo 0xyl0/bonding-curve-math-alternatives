@@ -99,8 +99,7 @@ contract BondingCurveTest is Test {
         IBondingCurve _bc,
         uint256 _runs,
         uint256 _maxTokenDeviation,
-        uint256,
-        /* _maxReserveDeviation */
+        uint256 _maxReserveDeviation,
         uint256 _rrDeviation
     ) internal {
         console2.log("-- before --");
@@ -108,18 +107,27 @@ contract BondingCurveTest is Test {
         logDeviation(_bc);
 
         uint256 totalTokenFeeAmount;
+        uint256 totalReserveFeeAmount;
         uint256 initialReserveAmount = 500 ether;
-        (uint256 tokenAmount, uint256 feeAmount) = _bc.buy(initialReserveAmount, 0);
-        uint256 initialTokenAmount = tokenAmount + feeAmount;
+
+        // buy
+        (uint256 tokenAmount, uint256 tokenBuyFeeAmount) = _bc.buy(initialReserveAmount, 0);
+        uint256 initialTokenAmount = tokenAmount + tokenBuyFeeAmount;
         uint256 reserveAmount;
-        totalTokenFeeAmount += feeAmount;
+        totalTokenFeeAmount += tokenBuyFeeAmount;
+        uint256 tokenSellFeeAmount;
         for (uint256 i = 0; i < _runs; i++) {
-            (reserveAmount, feeAmount) = _bc.sell(tokenAmount, 0);
-            totalTokenFeeAmount += feeAmount;
-            (tokenAmount, feeAmount) = _bc.buy(reserveAmount, 0);
-            totalTokenFeeAmount += feeAmount;
+            // sell
+            (reserveAmount, tokenSellFeeAmount) = _bc.sell(tokenAmount, 0);
+            totalTokenFeeAmount += tokenSellFeeAmount;
+            totalReserveFeeAmount += _bc.getSellAmount(tokenBuyFeeAmount + tokenSellFeeAmount);
+            // buy
+            (tokenAmount, tokenBuyFeeAmount) = _bc.buy(reserveAmount, 0);
+            totalTokenFeeAmount += tokenBuyFeeAmount;
         }
-        (reserveAmount, feeAmount) = _bc.sell(tokenAmount, 0);
+        // sell
+        (reserveAmount, tokenSellFeeAmount) = _bc.sell(tokenAmount, 0);
+        totalReserveFeeAmount += _bc.getSellAmount(tokenBuyFeeAmount + tokenSellFeeAmount);
 
         console2.log("-- after --");
         logState(_bc);
@@ -128,11 +136,15 @@ contract BondingCurveTest is Test {
         assertApproxEqAbs(
             initialTokenAmount, tokenAmount + totalTokenFeeAmount, _maxTokenDeviation, "Too much token deviation"
         );
-        // TODO: This is hard to compute now. Should we keep it? It seems that checking token + reserve ratio is enough
-        //assertApproxEqAbs(initialReserveAmount, reserveAmount, _maxReserveDeviation, "Too much reserve deviation");
+        assertApproxEqAbs(
+            initialReserveAmount,
+            reserveAmount + totalReserveFeeAmount,
+            _maxReserveDeviation,
+            "Too much reserve deviation"
+        );
         assertTrue(_bc.checkCurrentDeviation(_rrDeviation), "Too much reserve ratio deviation");
         // Let's add the last sell fee
-        totalTokenFeeAmount += feeAmount;
+        totalTokenFeeAmount += tokenSellFeeAmount;
         assertEq(totalTokenFeeAmount, _bc.balanceOf(feeRecipient), "Fee recipient token balance mismatch");
     }
 
@@ -172,16 +184,17 @@ contract BondingCurveTest is Test {
         uint256 initialReserveAmount;
         uint256 initialBurnRecipientReserveBalance;
         uint256 totalTokenFeeAmount;
+        uint256 totalReserveFeeAmount;
         uint256 totalTokenBurnAmount;
         uint256 totalReserveBurnAmount;
+        uint256 totalReserveLeakAmount; // includes fee and burn amounts
     }
 
     function _testFloorSellAndBurn(
         IBondingCurve _bc,
         uint256 _runs,
         uint256 _maxTokenDeviation,
-        uint256,
-        /* _maxReserveDeviation */
+        uint256 _maxReserveDeviation,
         uint256 _rrDeviation
     ) internal {
         TestVars memory vars;
@@ -191,23 +204,33 @@ contract BondingCurveTest is Test {
         vars.initialBurnRecipientReserveBalance = reserveToken.balanceOf(burnRecipient);
         vars.initialReserveAmount = 500 ether;
 
-        (uint256 tokenAmount, uint256 feeAmount) = _bc.buy(vars.initialReserveAmount, 0);
-        vars.initialTokenAmount = tokenAmount + feeAmount;
+        // buy
+        (uint256 tokenAmount, uint256 tokenBuyFeeAmount) = _bc.buy(vars.initialReserveAmount, 0);
+        vars.initialTokenAmount = tokenAmount + tokenBuyFeeAmount;
+        vars.totalTokenFeeAmount += tokenBuyFeeAmount;
         uint256 reserveAmount;
-        vars.totalTokenFeeAmount += feeAmount;
+        uint256 tokenSellFeeAmount;
+        uint256 floorSellAndBurnAmount;
         for (uint256 i = 0; i < _runs; i++) {
-            uint256 floorSellAndBurnAmount = tokenAmount / 10;
-            (reserveAmount, feeAmount) = _bc.sell(tokenAmount - floorSellAndBurnAmount, 0);
+            // sell
+            floorSellAndBurnAmount = tokenAmount / 10;
+            (reserveAmount, tokenSellFeeAmount) = _bc.sell(tokenAmount - floorSellAndBurnAmount, 0);
+            vars.totalTokenFeeAmount += tokenSellFeeAmount;
+            vars.totalReserveLeakAmount += _bc.getSellAmount(
+                tokenBuyFeeAmount + tokenSellFeeAmount + floorSellAndBurnAmount
+            );
+            // floor sell and burn
             if (floorSellAndBurnAmount > 0) {
                 uint256 reserveBurnAmount = _bc.floorSellAndBurn(floorSellAndBurnAmount);
                 vars.totalTokenBurnAmount += floorSellAndBurnAmount;
                 vars.totalReserveBurnAmount += reserveBurnAmount;
             }
-            vars.totalTokenFeeAmount += feeAmount;
-            (tokenAmount, feeAmount) = _bc.buy(reserveAmount, 0);
-            vars.totalTokenFeeAmount += feeAmount;
+            (tokenAmount, tokenBuyFeeAmount) = _bc.buy(reserveAmount, 0);
+            vars.totalTokenFeeAmount += tokenBuyFeeAmount;
         }
-        (reserveAmount, feeAmount) = _bc.sell(tokenAmount, 0);
+        // sell
+        (reserveAmount, tokenSellFeeAmount) = _bc.sell(tokenAmount, 0);
+        vars.totalReserveLeakAmount += _bc.getSellAmount(tokenBuyFeeAmount + tokenSellFeeAmount);
 
         assertApproxEqAbs(
             vars.initialTokenAmount,
@@ -215,11 +238,15 @@ contract BondingCurveTest is Test {
             _maxTokenDeviation,
             "Too much token deviation"
         );
-        // TODO: This is hard to compute now. Should we keep it? It seems that checking token + reserve ratio is enough
-        //assertApproxEqAbs(vars.initialReserveAmount, reserveAmount, _maxReserveDeviation, "Too much reserve deviation");
+        assertApproxEqAbs(
+            vars.initialReserveAmount,
+            reserveAmount + vars.totalReserveLeakAmount,
+            _maxReserveDeviation,
+            "Too much reserve deviation"
+        );
 
         // Let's add the last sell fee
-        vars.totalTokenFeeAmount += feeAmount;
+        vars.totalTokenFeeAmount += tokenSellFeeAmount;
         assertApproxEqAbs(
             _bc.virtualSupply(),
             vars.initialSupply + vars.totalTokenBurnAmount + vars.totalTokenFeeAmount,
@@ -243,8 +270,7 @@ contract BondingCurveTest is Test {
         IBondingCurve _bc,
         uint256 _runs,
         uint256 _maxTokenDeviation,
-        uint256,
-        /* _maxReserveDeviation */
+        uint256 _maxReserveDeviation,
         uint256 _rrDeviation
     ) internal {
         TestVars memory vars;
@@ -253,20 +279,38 @@ contract BondingCurveTest is Test {
         vars.initialFloorBalance = _bc.floorBalance();
         vars.initialBurnRecipientReserveBalance = reserveToken.balanceOf(burnRecipient);
         vars.initialReserveAmount = 500 ether;
-        (uint256 tokenAmount, uint256 feeAmount) = _bc.buy(vars.initialReserveAmount, 0);
-        vars.initialTokenAmount = tokenAmount + feeAmount;
+
+        // buy
+        (uint256 tokenAmount, uint256 tokenBuyFeeAmount) = _bc.buy(vars.initialReserveAmount, 0);
+        vars.initialTokenAmount = tokenAmount + tokenBuyFeeAmount;
+        vars.totalTokenFeeAmount += tokenBuyFeeAmount;
+        uint256 virtualSupplyAfterBuy = _bc.virtualSupply();
+        uint256 virtualBalanceAfterBuy = _bc.virtualBalance();
         uint256 reserveAmount;
-        vars.totalTokenFeeAmount += feeAmount;
+        uint256 tokenSellFeeAmount;
         for (uint256 i = 0; i < _runs; i++) {
-            (reserveAmount, feeAmount) = _bc.sell(tokenAmount, 0);
-            vars.totalTokenFeeAmount += feeAmount;
-            (tokenAmount, feeAmount) = _bc.buy(reserveAmount, 0);
-            vars.totalTokenFeeAmount += feeAmount;
+            // sell
+            // Leak is negative, as we are selling at a higher price
+            vars.totalReserveLeakAmount += _bc.getSellAmount(tokenAmount + tokenBuyFeeAmount)
+            - _bc.getSellAmount(tokenAmount + tokenBuyFeeAmount, virtualSupplyAfterBuy, virtualBalanceAfterBuy);
+            (reserveAmount, tokenSellFeeAmount) = _bc.sell(tokenAmount, 0);
+            vars.totalTokenFeeAmount += tokenSellFeeAmount;
+            vars.totalReserveFeeAmount += _bc.getSellAmount(tokenBuyFeeAmount + tokenSellFeeAmount);
+            //  buy
+            (tokenAmount, tokenBuyFeeAmount) = _bc.buy(reserveAmount, 0);
+            vars.totalTokenFeeAmount += tokenBuyFeeAmount;
+            virtualSupplyAfterBuy = _bc.virtualSupply();
+            virtualBalanceAfterBuy = _bc.virtualBalance();
+            // buy and floor sell
             (uint256 tokenBurnAmount, uint256 reserveBurnAmount) = _bc.buyFloorSellAndBurn(reserveAmount, 0);
             vars.totalTokenBurnAmount += tokenBurnAmount;
             vars.totalReserveBurnAmount += reserveBurnAmount;
         }
-        (reserveAmount, feeAmount) = _bc.sell(tokenAmount, 0);
+        // sell
+        vars.totalReserveLeakAmount += _bc.getSellAmount(tokenAmount + tokenBuyFeeAmount)
+        - _bc.getSellAmount(tokenAmount + tokenBuyFeeAmount, virtualSupplyAfterBuy, virtualBalanceAfterBuy);
+        (reserveAmount, tokenSellFeeAmount) = _bc.sell(tokenAmount, 0);
+        vars.totalReserveFeeAmount += _bc.getSellAmount(tokenBuyFeeAmount + tokenSellFeeAmount);
 
         assertApproxEqAbs(
             vars.initialTokenAmount,
@@ -274,11 +318,15 @@ contract BondingCurveTest is Test {
             _maxTokenDeviation,
             "Too much token deviation"
         );
-        // TODO: This is hard to compute now. Should we keep it? It seems that checking token + reserve ratio is enough
-        //assertApproxEqAbs(vars.initialReserveAmount, reserveAmount, _maxReserveDeviation, "Too much reserve deviation");
+        assertApproxEqAbs(
+            vars.initialReserveAmount + vars.totalReserveLeakAmount,
+            reserveAmount + vars.totalReserveFeeAmount,
+            _maxReserveDeviation,
+            "Too much reserve deviation"
+        );
 
         // Let's add the last sell fee
-        vars.totalTokenFeeAmount += feeAmount;
+        vars.totalTokenFeeAmount += tokenSellFeeAmount;
         assertApproxEqAbs(
             _bc.virtualSupply(),
             vars.initialSupply + vars.totalTokenBurnAmount + vars.totalTokenFeeAmount,
@@ -311,7 +359,11 @@ contract BondingCurveTest is Test {
         uint256 snapshotId = vm.snapshotState();
         // separate functions
         (uint256 tokenAmount1, uint256 tokenFeeAmount1) = _bc.buy(_reserveAmount, 0);
+        // calc fee impact on reserve amount (1st way)
+        uint256 reserveAmountWithoutFee1 = _bc.getSellAmountFromFloorUpwards(tokenAmount1 + tokenFeeAmount1);
         uint256 reserveAmount1 = _bc.floorSellAndBurn(tokenAmount1);
+        // calc fee impact on reserve amount (2nd way)
+        uint256 reserveFeeAmount1 = _bc.getSellAmountFromFloorUpwards(tokenFeeAmount1);
 
         BondingCurveStateTestVars memory vars1;
         vars1.virtualSupply = _bc.virtualSupply();
@@ -320,6 +372,7 @@ contract BondingCurveTest is Test {
         vars1.floorBalance = _bc.floorBalance();
 
         vm.revertToState(snapshotId);
+
         // buyFloorSellAndBurn combined function
         (uint256 tokenAmount2, uint256 reserveAmount2) = _bc.buyFloorSellAndBurn(_reserveAmount, 0);
 
@@ -331,14 +384,13 @@ contract BondingCurveTest is Test {
 
         // checks
         assertEq(tokenAmount1 + tokenFeeAmount1, tokenAmount2, "Wrong token amount");
-        // TODO: calc fee impact on reserve amount
-        //assertEq(reserveAmount1, reserveAmount2, "Wrong reserve amount");
+        assertEq(reserveAmountWithoutFee1, reserveAmount2, "Wrong reserve amount (1st way)");
+        assertApproxEqAbs(reserveAmount1 + reserveFeeAmount1, reserveAmount2, 1e8, "Wrong reserve amount (2nd way)");
         // curve state
         assertEq(vars1.virtualSupply, vars2.virtualSupply, "Wrong virtual supply");
         assertEq(vars1.virtualBalance, vars2.virtualBalance, "Wrong virtual balance");
         assertEq(vars1.floorSupply + tokenFeeAmount1, vars2.floorSupply, "Wrong floor supply");
-        // TODO: calc fee impact
-        //assertEq(vars1.floorBalance, vars2.floorBalance, "Wrong floor balance");
+        assertApproxEqAbs(vars1.floorBalance + reserveFeeAmount1, vars2.floorBalance, 1e8, "Wrong floor balance");
     }
 
     function _testFuzzBuy(IBondingCurve _bc, uint256 _x) internal {
@@ -358,7 +410,7 @@ contract BondingCurveTest is Test {
     function testABDKSimple() public {
         IBondingCurve abdkBondingCurve = _setUpABDK(1000 ether);
 
-        _testSimple(abdkBondingCurve, 10000, 2e7, 1e7, 1e5);
+        _testSimple(abdkBondingCurve, 10000, 2e7, 1e9, 1e5);
     }
 
     function testABDKSlippage() public {
@@ -376,7 +428,7 @@ contract BondingCurveTest is Test {
     function testABDKBuyFloorSellAndBurn() public {
         IBondingCurve abdkBondingCurve = _setUpABDK(1000 ether);
 
-        _testBuyFloorSellAndBurn(abdkBondingCurve, 10000, 3e8, 1e7, 1e5);
+        _testBuyFloorSellAndBurn(abdkBondingCurve, 10000, 3e8, 2e10, 1e5);
     }
 
     function testABDKBuyFloorSellAndBurnEquivalency(uint256 _tokenAmount) public {

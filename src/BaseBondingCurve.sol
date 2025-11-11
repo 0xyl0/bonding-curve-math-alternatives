@@ -73,7 +73,7 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         uint256 initialVirtualSupply = virtualSupply();
         uint256 initialVirtualBalance = virtualBalance;
 
-        uint256 tokenAmount = _calcBuyAmount(_reserveAmount, initialVirtualSupply, initialVirtualBalance);
+        uint256 tokenAmount = getBuyAmount(_reserveAmount, initialVirtualSupply, initialVirtualBalance);
         uint256 tokenFeeAmount = getTokenBuyFee(tokenAmount);
         uint256 tokenNetAmount = tokenAmount - tokenFeeAmount;
 
@@ -88,8 +88,12 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         return (tokenNetAmount, tokenFeeAmount);
     }
 
-    // This function moves virtual supply upwards (right)
-    function _calcBuyAmount(uint256 _reserveAmount, uint256 _supply, uint256 _balance) internal view returns (uint256) {
+    // These functions move virtual supply upwards (right)
+    function getBuyAmount(uint256 _reserveAmount) external view returns (uint256) {
+        return getBuyAmount(_reserveAmount, virtualSupply(), virtualBalance);
+    }
+
+    function getBuyAmount(uint256 _reserveAmount, uint256 _supply, uint256 _balance) public view returns (uint256) {
         require(_reserveAmount > 0, "Zero amount");
 
         //uint256 gasLeft = gasleft();
@@ -110,7 +114,7 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
 
         uint256 initialVirtualSupply = virtualSupply();
         uint256 initialVirtualBalance = virtualBalance;
-        uint256 reserveAmount = _calcSellAmount(tokenNetAmount, initialVirtualSupply, initialVirtualBalance);
+        uint256 reserveAmount = getSellAmount(tokenNetAmount, initialVirtualSupply, initialVirtualBalance);
         require(reserveAmount >= _minReserveAmount, "Min amount not reached");
 
         virtualBalance = initialVirtualBalance - reserveAmount;
@@ -122,8 +126,12 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         return (reserveAmount, tokenFeeAmount);
     }
 
-    // This function moves virtual supply downwards (left)
-    function _calcSellAmount(uint256 _tokenAmount, uint256 _supply, uint256 _balance) internal view returns (uint256) {
+    // These functions move virtual supply downwards (left)
+    function getSellAmount(uint256 _tokenAmount) external view returns (uint256) {
+        return getSellAmount(_tokenAmount, virtualSupply(), virtualBalance);
+    }
+
+    function getSellAmount(uint256 _tokenAmount, uint256 _supply, uint256 _balance) public view returns (uint256) {
         require(_tokenAmount > 0, "Zero amount");
 
         //uint256 gasLeft = gasleft();
@@ -142,7 +150,7 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
     function floorSellAndBurn(uint256 _tokenAmount) external returns (uint256) {
         uint256 initialFloorSupply = floorSupply;
         uint256 initialFloorBalance = floorBalance;
-        uint256 reserveAmount = _calcSellFromFloorUpwards(_tokenAmount, initialFloorSupply, initialFloorBalance);
+        uint256 reserveAmount = getSellAmountFromFloorUpwards(_tokenAmount, initialFloorSupply, initialFloorBalance);
 
         uint256 newFloorSupply = initialFloorSupply + _tokenAmount;
         require(newFloorSupply <= virtualSupply(), "Floor cannot surpass virtual state");
@@ -164,7 +172,7 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         // Buy at the current price
         uint256 initialVirtualSupply = virtualSupply();
         uint256 initialVirtualBalance = virtualBalance;
-        uint256 tokenBurnAmount = _calcBuyAmount(_reserveAmount, initialVirtualSupply, initialVirtualBalance);
+        uint256 tokenBurnAmount = getBuyAmount(_reserveAmount, initialVirtualSupply, initialVirtualBalance);
         require(tokenBurnAmount >= _minTokenAmount, "Min amount not reached");
 
         virtualBalance = initialVirtualBalance + _reserveAmount;
@@ -172,7 +180,8 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         // Sell at the floor price
         uint256 initialFloorSupply = floorSupply;
         uint256 initialFloorBalance = floorBalance;
-        uint256 sellReserveAmount = _calcSellFromFloorUpwards(tokenBurnAmount, initialFloorSupply, initialFloorBalance);
+        uint256 sellReserveAmount =
+            getSellAmountFromFloorUpwards(tokenBurnAmount, initialFloorSupply, initialFloorBalance);
         assert(sellReserveAmount < _reserveAmount);
 
         floorSupply = initialFloorSupply + tokenBurnAmount;
@@ -185,9 +194,13 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         return (tokenBurnAmount, sellReserveAmount);
     }
 
-    // This function moves floor supply upwards (right)
-    function _calcSellFromFloorUpwards(uint256 _tokenAmount, uint256 _supply, uint256 _balance)
-        internal
+    // These functions move floor supply upwards (right)
+    function getSellAmountFromFloorUpwards(uint256 _tokenAmount) external view returns (uint256) {
+        return getSellAmountFromFloorUpwards(_tokenAmount, floorSupply, floorBalance);
+    }
+
+    function getSellAmountFromFloorUpwards(uint256 _tokenAmount, uint256 _supply, uint256 _balance)
+        public
         view
         returns (uint256)
     {
@@ -220,12 +233,16 @@ abstract contract BaseBondingCurve is IBondingCurve, ERC20Permit {
         return getPrice(floorSupply);
     }
 
-    function getTokenBuyFee(uint256 _tokenAmount) public pure returns (uint256 _tokenFeeAmount) {
+    function getTokenBuyFee(uint256 _tokenAmount) public pure returns (uint256) {
         return _tokenAmount * FEE_PERCENTAGE / DECIMAL_PRECISION;
     }
 
-    function getTokenSellFee(uint256 _tokenAmount) public pure returns (uint256 _tokenFeeAmount) {
+    function getTokenSellFee(uint256 _tokenAmount) public pure returns (uint256) {
         return _tokenAmount * FEE_PERCENTAGE / DECIMAL_PRECISION;
+    }
+
+    function getTokenAmountMinusFee(uint256 _tokenAmount) external pure returns (uint256) {
+        return _tokenAmount - getTokenBuyFee(_tokenAmount);
     }
 
     function reserveRatioDeviation() external view returns (int256) {
