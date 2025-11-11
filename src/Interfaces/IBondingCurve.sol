@@ -26,12 +26,29 @@ interface IBondingCurve is IERC20Metadata, IERC20Permit, IERC5267 {
         external
         returns (uint256 tokenAmount, uint256 sellReserveAmount);
 
+    function getBuyAmount(uint256 _reserveAmount) external view returns (uint256 tokenAmount);
+    function getBuyAmount(uint256 _reserveAmount, uint256 _supply, uint256 _balance)
+        external
+        view
+        returns (uint256 tokenAmount);
+    function getSellAmount(uint256 _tokenAmount) external view returns (uint256 reserveAmount);
+    function getSellAmount(uint256 _tokenAmount, uint256 _supply, uint256 _balance)
+        external
+        view
+        returns (uint256 reserveAmount);
+    function getSellAmountFromFloorUpwards(uint256 _tokenAmount) external view returns (uint256 reserveAmount);
+    function getSellAmountFromFloorUpwards(uint256 _tokenAmount, uint256 _supply, uint256 _balance)
+        external
+        view
+        returns (uint256 reserveAmount);
+
     function getPrice(uint256 _supply) external view returns (uint256);
     function currentPrice() external view returns (uint256);
     function floorPrice() external view returns (uint256);
 
-    function getTokenBuyFee(uint256 _tokenAmount) external view returns (uint256 _tokenFeeAmount);
-    function getTokenSellFee(uint256 _tokenAmount) external view returns (uint256 _tokenFeeAmount);
+    function getTokenBuyFee(uint256 _tokenAmount) external view returns (uint256 tokenFeeAmount);
+    function getTokenSellFee(uint256 _tokenAmount) external view returns (uint256 tokenFeeAmount);
+    function getTokenAmountMinusFee(uint256 _tokenAmount) external view returns (uint256 tokenNetAmount);
 
     function reserveRatioDeviation() external view returns (int256);
     function checkCurrentDeviation() external view returns (bool);
